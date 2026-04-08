@@ -300,11 +300,11 @@ function buildQR(code){
 function updateRecvQR(code){
   const wrap=document.getElementById('recv-qr-wrap');
   const el=document.getElementById('recv-qr-container');
+  if(!wrap||!el||typeof QRCode==='undefined')return;
   if(code&&code.length===6){
     el.innerHTML='';
     const size=window.innerWidth<460?160:120;
-    new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-    wrap.classList.add('has-code');
+    try{new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});wrap.classList.add('has-code');}catch(e){console.error('QR error',e)}
   }else{
     el.innerHTML='';
     wrap.classList.remove('has-code');
@@ -439,7 +439,7 @@ function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);co
 
 function startReceive(autoCode){
   hide('view-home');show('view-receive');
-  if(autoCode){document.getElementById('recv-code-input').value=autoCode;document.getElementById('recv-status-text').textContent='Auto-joining room '+autoCode+'\u2026';setDot('recv-dot','waiting');setTimeout(()=>connectToPeer(),500)}
+  if(autoCode){document.getElementById('recv-code-input').value=autoCode;updateRecvQR(autoCode);document.getElementById('recv-status-text').textContent='Auto-joining room '+autoCode+'\u2026';setDot('recv-dot','waiting');setTimeout(()=>connectToPeer(),500)}
 }
 
 function connectToPeer(){
