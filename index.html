@@ -52,9 +52,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
 .share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
 .share-grid input[type=text]{padding:.75rem .5rem;font-size:max(16px,1.4rem)}
-#recv-qr-wrap{transition:opacity .3s}
-#recv-qr-wrap:not(.has-code) .qr-inner{opacity:.15}
-#recv-qr-wrap:not(.has-code) .qr-label::after{content:' — type a code'}
 .room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .room-code{font-size:clamp(1.8rem,8vw,2.6rem);font-weight:700;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.15);font-family:var(--mono);line-height:1;animation:codeGlow 2s ease-in-out infinite alternate}
 @keyframes codeGlow{from{text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.1)}to{text-shadow:0 0 30px var(--accent-glow),0 0 60px rgba(0,217,255,.2)}}
@@ -96,6 +93,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .fi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .fi-size{color:var(--muted);font-size:11px;flex-shrink:0}
 .fi-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;flex-shrink:0;transition:all .2s;font-family:var(--mono);padding:.25rem .5rem;margin:-.25rem -.5rem;min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.fi-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid var(--border)}
 .fi-remove:hover{background:var(--red-dim);color:var(--red)}
 .fi-remove:active{background:var(--red-dim);color:var(--red);transform:scale(.9)}
 .progress-section{margin-top:1.25rem}
@@ -180,20 +178,12 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   <div id="view-join" class="card card-accent hidden">
     <button class="btn-back" onclick="goHome()">&#8592; Back</button>
     <span class="label">Room Code</span>
-    <div class="share-grid">
-      <div class="room-box">
-        <input type="text" id="join-code-input" maxlength="6" placeholder="XXXXXX"
-          autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
-          oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);updateJoinQR(this.value)"
-          onkeydown="if(event.key==='Enter')joinRoom()">
-        <div class="mt-2">
-          <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">Join Room</button>
-        </div>
-      </div>
-      <div class="qr-wrap" id="join-qr-wrap">
-        <div class="qr-inner" id="join-qr-container"></div>
-        <div class="qr-label">Scan to join</div>
-      </div>
+    <input type="text" id="join-code-input" maxlength="6" placeholder="XXXXXX"
+      autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
+      oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6)"
+      onkeydown="if(event.key==='Enter')joinRoom()">
+    <div class="mt-2">
+      <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">Join Room</button>
     </div>
     <div class="status">
       <div class="dot" id="join-dot"></div>
@@ -288,7 +278,8 @@ let peer=null,conn=null,isHost=false;
 let selectedFiles=[],recvBuffers={},recvMeta={};
 let cryptoKey=null,roomPin=null,pinPending=false;
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
-const MAX_RETRIES=3,RETRY_DELAY=500;
+let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
+const MAX_RETRIES=3,RETRY_DELAY=500,MAX_RECONNECT=5;
 
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
@@ -312,12 +303,6 @@ function buildQR(containerId,code){
   new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
 }
 
-function updateJoinQR(code){
-  const wrap=document.getElementById('join-qr-wrap');const el=document.getElementById('join-qr-container');el.innerHTML='';
-  if(code&&code.length===6){const size=window.innerWidth<460?160:130;new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});wrap.classList.add('has-code');}
-  else{wrap.classList.remove('has-code');}
-}
-
 function copyRoomCode(){
   const code=document.getElementById('room-code-display').textContent;
   const btn=document.getElementById('room-copy-btn');const orig=btn.textContent;
@@ -337,6 +322,7 @@ function goHome(){
   conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;
   selectedFiles=[];recvBuffers={};recvMeta={};
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
+  currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
   show('view-home');hide('view-join');hide('view-room');hide('camera-btn');
   hide('room-pin-setup');hide('room-pin-entry');
   document.getElementById('room-send-list').innerHTML='';
@@ -347,8 +333,6 @@ function goHome(){
   document.getElementById('room-recv-progress').classList.add('hidden');
   const sb=document.getElementById('room-send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';
   document.getElementById('join-code-input').value='';
-  document.getElementById('join-qr-container').innerHTML='';
-  document.getElementById('join-qr-wrap').classList.remove('has-code');
   document.getElementById('join-btn').disabled=false;
   document.getElementById('room-code-display').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
   document.getElementById('room-qr-container').innerHTML='';
@@ -364,10 +348,12 @@ function enterRoom(code){
 }
 
 function onConnected(){
+  reconnectAttempts=0;
   setDot('connected');setStatus('Connected \u2014 E2EE secured');
   document.getElementById('view-room').classList.add('connected-border');
   hide('room-pin-setup');hide('room-pin-entry');
   show('camera-btn');updateSendBtn();
+  if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
 
 function createRoom(){
@@ -408,28 +394,52 @@ function joinRoom(autoCode){
   document.getElementById('join-btn').disabled=true;
   document.getElementById('join-dot').className='dot waiting';
   document.getElementById('join-status-text').textContent='Connecting\u2026';
-  isHost=false;
+  isHost=false;currentRoomCode=code;reconnectAttempts=0;
   enterRoom(code);
   document.getElementById('room-label').textContent='Room';
   setStatus('Connecting\u2026');setDot('waiting');
   if(peer){try{peer.destroy()}catch(e){}}
   peer=new Peer(PEERJS_CFG);
-  peer.on('open',()=>{
-    conn=peer.connect(code,{reliable:true});
-    conn.on('open',()=>setStatus('Securing channel\u2026'));
-    conn.on('data',async d=>{
-      if(d.type==='key'){
-        cryptoKey=await importKey(d.key);
-        if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
-        else onConnected();
-      } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
-      else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
-      else await handleIncoming(d);
-    });
-    conn.on('close',()=>{setDot('error');setStatus('Host disconnected');cryptoKey=null});
-    conn.on('error',()=>{setDot('error');setStatus('Connection failed \u2014 check the code')});
-  });
+  peer.on('open',()=>doConnect(code));
   peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
+}
+
+function doConnect(code){
+  conn=peer.connect(code,{reliable:true});
+  conn.on('open',()=>setStatus('Securing channel\u2026'));
+  conn.on('data',async d=>{
+    if(d.type==='key'){
+      cryptoKey=await importKey(d.key);
+      if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
+      else onConnected();
+    } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
+    else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
+    else await handleIncoming(d);
+  });
+  conn.on('close',()=>{cryptoKey=null;scheduleReconnect();});
+  conn.on('error',()=>{scheduleReconnect();});
+}
+
+function scheduleReconnect(){
+  if(!currentRoomCode||reconnectAttempts>=MAX_RECONNECT){setDot('error');setStatus('Connection lost');return;}
+  reconnectAttempts++;
+  const delay=Math.min(1500*reconnectAttempts,8000);
+  setDot('waiting');setStatus(`Reconnecting\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
+  clearTimeout(reconnectTimer);
+  reconnectTimer=setTimeout(()=>{if(peer&&!peer.destroyed)doConnect(currentRoomCode);},delay);
+}
+
+async function resumeSend(){
+  if(!conn||!cryptoKey||pendingSendIdx>=selectedFiles.length)return;
+  show('room-send-progress');
+  const btn=document.getElementById('room-send-btn');btn.disabled=true;btn.textContent='Resuming\u2026';
+  sendStartTime=Date.now();sendBytesSent=0;
+  sendTotalBytes=selectedFiles.slice(pendingSendIdx).reduce((a,f)=>a+f.size,0);
+  const interval=setInterval(updateSpeed,500);
+  for(let i=pendingSendIdx;i<selectedFiles.length;i++){pendingSendIdx=i;await sendOneFile(selectedFiles[i],i);}
+  clearInterval(interval);pendingSendIdx=selectedFiles.length;
+  document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
+  btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
 }
 
 function onDragOver(e){e.preventDefault();document.getElementById('dropzone').classList.add('dragover')}
@@ -438,7 +448,7 @@ function onDrop(e){e.preventDefault();document.getElementById('dropzone').classL
 function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
-function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>`<div class="file-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`).join('')}
+function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('')}
 function updateSendBtn(){const ready=conn&&cryptoKey&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
@@ -457,7 +467,9 @@ async function sendFiles(){
   const interval=setInterval(updateSpeed,500);
   const wrap=document.getElementById('room-progress-items');wrap.innerHTML='';
   selectedFiles.forEach((f,i)=>{wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${f.name}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
-  for(let i=0;i<selectedFiles.length;i++)await sendOneFile(selectedFiles[i],i);
+  pendingSendIdx=0;
+  for(let i=0;i<selectedFiles.length;i++){pendingSendIdx=i;await sendOneFile(selectedFiles[i],i);}
+  pendingSendIdx=selectedFiles.length;
   clearInterval(interval);document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
   btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
 }
@@ -519,10 +531,11 @@ window.addEventListener('dragenter',e=>{e.preventDefault();document.getElementBy
 window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('dragleave',e=>{if(e.relatedTarget===null)document.getElementById('drag-overlay').classList.remove('active')});
 window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.remove('active');if(e.dataTransfer.files.length)addFiles([...e.dataTransfer.files])});
+window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){addFiles(files);e.preventDefault();}});
 
 window.addEventListener('load',()=>{
   const room=new URLSearchParams(window.location.search).get('room');
-  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase();updateJoinQR(room.toUpperCase());setTimeout(()=>joinRoom(room.toUpperCase()),300);}
+  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase();setTimeout(()=>joinRoom(room.toUpperCase()),300);}
 });
 
 document.querySelectorAll('.mode-btn').forEach(btn=>{
