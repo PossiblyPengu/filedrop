@@ -486,7 +486,8 @@ function updateSpeed(){
 }
 
 async function sendFiles(){
-  if(!conn||!selectedFiles.length||!cryptoKey||pinPending)return;
+  if(!conn||!selectedFiles.length||pinPending)return;
+  if(encryptionEnabled&&!cryptoKey)return;
   const btn=document.getElementById('room-send-btn');btn.disabled=true;
   show('room-send-progress');
   sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
