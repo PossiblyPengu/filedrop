@@ -50,6 +50,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .btn-back:active,.btn-back:hover{color:var(--text)}
 .share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch}
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
+.share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
+.share-grid input[type=text]{padding:.75rem .5rem;font-size:max(16px,1.4rem)}
+#recv-qr-wrap{opacity:.3;transition:opacity .3s}
+#recv-qr-wrap.has-code{opacity:1}
 .room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .room-code{font-size:clamp(1.8rem,8vw,2.6rem);font-weight:700;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.15);font-family:var(--mono);line-height:1;animation:codeGlow 2s ease-in-out infinite alternate}
 @keyframes codeGlow{from{text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.1)}to{text-shadow:0 0 30px var(--accent-glow),0 0 60px rgba(0,217,255,.2)}}
@@ -121,6 +125,23 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
 .dl-btn:active{background:rgba(0,255,136,.14)}
 .empty{font-size:12px;color:var(--muted);text-align:center;padding:1.25rem 0}
 .footer{margin-top:2.5rem;font-size:11px;color:var(--muted);letter-spacing:.12em;text-align:center;padding-bottom:.5rem;opacity:.7}
+.drag-overlay{position:fixed;inset:0;background:rgba(8,9,12,.95);backdrop-filter:blur(10px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.drag-overlay.active{opacity:1;pointer-events:auto}
+.drag-content{text-align:center;animation:float 2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.drag-icon{font-size:4rem;margin-bottom:1rem;display:block}
+.drag-text{font-family:var(--sans);font-size:1.5rem;color:#fff;font-weight:700}
+.speed-info{display:flex;gap:1rem;align-items:center;font-size:11px;color:var(--muted);margin-top:.5rem}
+.speed-info span{color:var(--accent)}
+input[type=password]{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;color:var(--text);font-family:var(--mono);font-size:14px;letter-spacing:.1em;outline:none;transition:all .2s;text-align:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
+input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
+.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin-top:.5rem}
+.pin-wrap input[type=password]{width:3rem;padding:.5rem;text-align:center;font-size:1.2rem;letter-spacing:.2em}
+.retry-badge{font-size:10px;color:var(--muted);background:rgba(255,77,106,.1);border:1px solid var(--red-dim);border-radius:4px;padding:.1rem .4rem;margin-left:.5rem}
+.camera-btn{position:fixed;bottom:calc(1.5rem + var(--safe-bottom));right:1.5rem;width:56px;height:56px;border-radius:50%;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,217,255,.2);transition:all .2s;z-index:50;display:flex;align-items:center;justify-content:center}
+.camera-btn:active{transform:scale(.9)}
+.camera-btn:hover{box-shadow:0 6px 30px rgba(0,217,255,.3);transform:translateY(-2px)}
+@media(min-width:800px){.camera-btn{display:none}}
 .hidden{display:none!important}
 .mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
 @media(max-width:400px){
@@ -131,6 +152,7 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
 </style>
 </head>
 <body>
+<div class="drag-overlay" id="drag-overlay"><div class="drag-content"><span class="drag-icon">&#128228;</span><div class="drag-text">Drop files to share</div></div></div>
 <div id="app">
   <div class="header">
     <div class="logo">File<span>Drop</span></div>
@@ -156,6 +178,14 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
   <!-- SEND -->
   <div id="view-send" class="card card-accent hidden">
     <button class="btn-back" onclick="goHome()">&#8592; Back</button>
+    <span class="label">Room Password (Optional)</span>
+    <div class="pin-wrap">
+      <input type="password" id="send-pin" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+      <input type="password" id="send-pin2" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+      <input type="password" id="send-pin3" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+      <input type="password" id="send-pin4" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+    </div>
+    <div class="divider"></div>
     <span class="label">Your Room</span>
     <div class="share-grid">
       <div class="room-box">
@@ -187,6 +217,7 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
     <div class="file-list" id="send-file-list"></div>
     <div id="transfer-progress" class="progress-section hidden">
       <span class="label">Sending</span>
+      <div id="speed-indicator" class="speed-info"><span id="speed-val">0 MB/s</span> &middot; <span id="eta-val">calculating...</span></div>
       <div id="progress-items"></div>
     </div>
     <div class="mt-3">
@@ -198,16 +229,34 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
   <div id="view-receive" class="card card-accent hidden">
     <button class="btn-back" onclick="goHome()">&#8592; Back</button>
     <span class="label">Room Code</span>
-    <input type="text" id="recv-code-input" maxlength="6" placeholder="XXXXXX"
-      autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
-      oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6)"
-      onkeydown="if(event.key==='Enter')connectToPeer()">
-    <div class="mt-2">
-      <button class="btn btn-primary" id="recv-connect-btn" onclick="connectToPeer()">Join Room</button>
+    <div class="share-grid">
+      <div class="room-box">
+        <input type="text" id="recv-code-input" maxlength="6" placeholder="XXXXXX"
+          autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
+          oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);updateRecvQR(this.value)"
+          onkeydown="if(event.key==='Enter')connectToPeer()">
+        <div class="mt-2">
+          <button class="btn btn-primary" id="recv-connect-btn" onclick="connectToPeer()">Join Room</button>
+        </div>
+      </div>
+      <div class="qr-wrap" id="recv-qr-wrap">
+        <div class="qr-inner" id="recv-qr-container"></div>
+        <div class="qr-label">Scan or share this room</div>
+      </div>
     </div>
     <div class="status">
       <div class="dot" id="recv-dot"></div>
       <span id="recv-status-text">Enter a code to connect</span>
+    </div>
+    <div id="recv-pin-section" class="hidden">
+      <div class="divider"></div>
+      <span class="label">Room Password Required</span>
+      <div class="pin-wrap">
+        <input type="password" id="recv-pin" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+        <input type="password" id="recv-pin2" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+        <input type="password" id="recv-pin3" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
+        <input type="password" id="recv-pin4" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===1)submitPin()">
+      </div>
     </div>
     <div class="divider"></div>
     <span class="label">Received Files</span>
@@ -219,11 +268,14 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
     </div>
   </div>
 
-  <div class="footer">WebRTC peer-to-peer &middot; Files never leave your devices</div>
+  <div class="footer">WebRTC peer-to-peer &middot; AES-256-GCM E2EE &middot; Files never touch servers</div>
 </div>
+<button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
+<input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
 <script>
 const CHUNK=65536;
 let peer=null,conn=null,selectedFiles=[],recvBuffers={},recvMeta={};
+let cryptoKey=null,isSender=false;
 
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
@@ -232,11 +284,31 @@ function setDot(id,s){document.getElementById(id).className='dot '+s}
 function roomURL(code){const u=new URL(window.location.href);u.searchParams.set('room',code);return u.toString()}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
 
+async function genCryptoKey(){return await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt'])}
+async function exportKey(key){const buf=await crypto.subtle.exportKey('raw',key);return Array.from(new Uint8Array(buf))}
+async function importKey(arr){return await crypto.subtle.importKey('raw',new Uint8Array(arr),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);return {iv:Array.from(iv),data:Array.from(new Uint8Array(enc))}}
+async function decryptChunk(encObj,key){const iv=new Uint8Array(encObj.iv);const data=new Uint8Array(encObj.data);return await crypto.subtle.decrypt({name:'AES-GCM',iv},key,data)}
+
 function buildQR(code){
   const el=document.getElementById('qr-container');
   el.innerHTML='';
   const size=window.innerWidth<460?180:140;
   new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+}
+
+function updateRecvQR(code){
+  const wrap=document.getElementById('recv-qr-wrap');
+  const el=document.getElementById('recv-qr-container');
+  if(code&&code.length===6){
+    el.innerHTML='';
+    const size=window.innerWidth<460?160:120;
+    new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+    wrap.classList.add('has-code');
+  }else{
+    el.innerHTML='';
+    wrap.classList.remove('has-code');
+  }
 }
 
 function copyCode(){
@@ -257,10 +329,16 @@ function shareRoom(){
 function show(id){document.getElementById(id).classList.remove('hidden')}
 function hide(id){document.getElementById(id).classList.add('hidden')}
 
+let roomPin=null,recvPinPending=false;
+let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
+const MAX_RETRIES=3,RETRY_DELAY=500;
+
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;selectedFiles=[];recvBuffers={};recvMeta={};
+  conn=null;selectedFiles=[];recvBuffers={};recvMeta={};cryptoKey=null;isSender=false;roomPin=null;recvPinPending=false;
+  sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
   show('view-home');hide('view-send');hide('view-receive');
+  hide('camera-btn');hide('recv-pin-section');
   document.getElementById('send-file-list').innerHTML='';
   document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>';
   document.getElementById('progress-items').innerHTML='';
@@ -272,21 +350,50 @@ function goHome(){
   document.getElementById('recv-connect-btn').disabled=false;
   document.getElementById('send-code').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
   document.getElementById('qr-container').innerHTML='';
+  document.getElementById('recv-qr-container').innerHTML='';
+  document.getElementById('recv-qr-wrap').classList.remove('has-code');
+  ['send-pin','send-pin2','send-pin3','send-pin4','recv-pin','recv-pin2','recv-pin3','recv-pin4'].forEach(id=>document.getElementById(id).value='');
   history.replaceState({},'',window.location.pathname);
 }
 
+function getPin(){const p1=document.getElementById('send-pin').value,p2=document.getElementById('send-pin2').value,p3=document.getElementById('send-pin3').value,p4=document.getElementById('send-pin4').value;if(p1&&p2&&p3&&p4)return p1+p2+p3+p4;return null}
+function clearRecvPin(){['recv-pin','recv-pin2','recv-pin3','recv-pin4'].forEach(id=>document.getElementById(id).value='');document.getElementById('recv-pin').focus()}
+function submitPin(){const p=document.getElementById('recv-pin').value+document.getElementById('recv-pin2').value+document.getElementById('recv-pin3').value+document.getElementById('recv-pin4').value;if(p.length===4&&conn)conn.send({type:'pin',pin:p})}
+
+window.addEventListener('dragenter',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.add('active')});
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('dragleave',e=>{if(e.relatedTarget===null)document.getElementById('drag-overlay').classList.remove('active')});
+window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.remove('active');if(e.dataTransfer.files.length){addFiles([...e.dataTransfer.files]);if(!document.getElementById('view-send').classList.contains('hidden'))document.getElementById('file-input').click()}});
+
+function openCamera(){document.getElementById('camera-input').click()}
+function onCameraCapture(e){if(e.target.files&&e.target.files[0]){const f=e.target.files[0];f.name='camera_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+(f.type.startsWith('video')?'.mp4':'.jpg');addFiles([f])}e.target.value=''}
+
+function updateSpeed(){const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;const speed=sendBytesSent/elapsed;const remaining=(sendTotalBytes-sendBytesSent)/speed;document.getElementById('speed-val').textContent=fmtSize(speed)+'/s';const mins=Math.floor(remaining/60),secs=Math.floor(remaining%60);document.getElementById('eta-val').textContent=remaining>0?`${mins}:${secs.toString().padStart(2,'0')} remaining`:'finishing...'}
+
 function startSend(){
   hide('view-home');show('view-send');
+  isSender=true;
   const code=randCode();
   document.getElementById('send-code').textContent=code;
   buildQR(code);
   document.getElementById('send-status-text').textContent='Initializing\u2026';
   peer=new Peer(code,{host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
   peer.on('open',()=>{setDot('send-dot','waiting');document.getElementById('send-status-text').textContent='Waiting for receiver\u2026'});
-  peer.on('connection',c=>{
+  peer.on('connection',async c=>{
     conn=c;
-    conn.on('open',()=>{setDot('send-dot','connected');document.getElementById('send-status-text').textContent='Receiver connected \u2014 ready to send';document.getElementById('view-send').classList.add('connected-border');updateSendBtn()});
-    conn.on('close',()=>{setDot('send-dot','waiting');document.getElementById('send-status-text').textContent='Receiver disconnected';conn=null;updateSendBtn()});
+    conn.on('open',async()=>{
+      roomPin=getPin();
+      cryptoKey=await genCryptoKey();
+      const exported=await exportKey(cryptoKey);
+      conn.send({type:'key',key:exported,hasPin:!!roomPin});
+    });
+    conn.on('data',d=>{
+      if(d.type==='pin'){
+        if(d.pin===roomPin){conn.send({type:'pin-ok'});setDot('send-dot','connected');document.getElementById('send-status-text').textContent='Receiver connected \u2014 E2EE secured';document.getElementById('view-send').classList.add('connected-border');show('camera-btn');updateSendBtn();}
+        else{conn.send({type:'pin-fail'});document.getElementById('send-status-text').textContent='Wrong password attempted';}
+      }
+    });
+    conn.on('close',()=>{setDot('send-dot','waiting');document.getElementById('send-status-text').textContent='Receiver disconnected';conn=null;cryptoKey=null;updateSendBtn()});
     conn.on('error',()=>{setDot('send-dot','error');document.getElementById('send-status-text').textContent='Connection error'});
   });
   peer.on('error',e=>{setDot('send-dot','error');document.getElementById('send-status-text').textContent='Error: '+e.type});
@@ -300,29 +407,32 @@ function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
 function renderSendList(){document.getElementById('send-file-list').innerHTML=selectedFiles.map((f,i)=>`<div class="file-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`).join('')}
-function updateSendBtn(){document.getElementById('send-btn').disabled=!(conn&&selectedFiles.length>0)}
+function updateSendBtn(){const ready=conn&&cryptoKey&&selectedFiles.length>0;const btn=document.getElementById('send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 async function sendFiles(){
-  if(!conn||!selectedFiles.length)return;
+  if(!conn||!selectedFiles.length||!cryptoKey)return;
   const btn=document.getElementById('send-btn');btn.disabled=true;
   document.getElementById('transfer-progress').classList.remove('hidden');
+  sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
+  const speedInterval=setInterval(updateSpeed,500);
   const wrap=document.getElementById('progress-items');wrap.innerHTML='';
-  selectedFiles.forEach((f,i)=>{wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${f.name}</span><span class="prog-pct" id="pct${i}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
-  for(let i=0;i<selectedFiles.length;i++)await sendOneFile(selectedFiles[i],i);
+  selectedFiles.forEach((f,i)=>{wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${f.name}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
+  for(let i=0;i<selectedFiles.length;i++){await sendOneFile(selectedFiles[i],i);}
+  clearInterval(speedInterval);document.getElementById('speed-val').textContent='0 MB/s';document.getElementById('eta-val').textContent='done';
   btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
 }
 
-function sendOneFile(file,idx){
-  return new Promise(resolve=>{
-    const reader=new FileReader();reader.readAsArrayBuffer(file);
-    reader.onload=()=>{
-      const buf=reader.result;const totalChunks=Math.ceil(buf.byteLength/CHUNK)||1;
-      conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks});
-      let sent=0;
-      function next(){if(sent>=totalChunks){updateProg(idx,100,true);return resolve()}const start=sent*CHUNK;conn.send({type:'chunk',index:sent,data:buf.slice(start,start+CHUNK)});sent++;updateProg(idx,Math.round(sent/totalChunks*100),false);setTimeout(next,0)}
-      next();
-    };
-  });
+async function sendOneFile(file,idx){
+  const reader=new FileReader();reader.readAsArrayBuffer(file);
+  await new Promise(r=>reader.onload=r);
+  const buf=reader.result;const totalChunks=Math.ceil(buf.byteLength/CHUNK)||1;
+  conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks});
+  for(let sent=0,retries=0;sent<totalChunks;){const start=sent*CHUNK;const chunkSize=Math.min(CHUNK,buf.byteLength-start);sendBytesSent+=chunkSize;
+    try{const chunk=buf.slice(start,start+CHUNK);const enc=await encryptChunk(chunk,cryptoKey);let ack=false;const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),10000));
+    await Promise.race([new Promise((resolve)=>{const check=()=>{if(!conn||!conn.open)resolve();else if(ack)resolve();else setTimeout(check,50)};conn.send({type:'chunk',index:sent,enc,ack:++sent===totalChunks});check();}),timeout]);retries=0;updateProg(idx,Math.round(sent/totalChunks*100),sent===totalChunks);}
+    catch(e){retries++;if(retries>MAX_RETRIES)throw new Error('Max retries exceeded');const badge=document.getElementById('retry'+idx);if(badge){badge.textContent='retry '+retries;badge.classList.remove('hidden');}sendBytesSent-=chunkSize;await new Promise(r=>setTimeout(r,RETRY_DELAY*retries));}
+    await new Promise(r=>setTimeout(r,0));
+  }
 }
 
 function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);const l=document.getElementById('pct'+idx);if(f){f.style.width=pct+'%';if(done)f.classList.add('done')}if(l)l.textContent=pct+'%'}
@@ -341,28 +451,38 @@ function connectToPeer(){
   peer=new Peer({host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
   peer.on('open',()=>{
     conn=peer.connect(code,{reliable:true});
-    conn.on('open',()=>{setDot('recv-dot','connected');document.getElementById('recv-status-text').textContent='Connected \u2014 waiting for files';document.getElementById('view-receive').classList.add('connected-border');document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>'});
-    conn.on('data',d=>handleIncoming(d));
-    conn.on('close',()=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Sender disconnected'});
+    conn.on('open',()=>{document.getElementById('recv-status-text').textContent='Connected \u2014 securing channel\u2026'});
+    conn.on('data',async d=>{
+      if(d.type==='key'){cryptoKey=await importKey(d.key);if(d.hasPin){recvPinPending=true;show('recv-pin-section');clearRecvPin();document.getElementById('recv-status-text').textContent='Enter room password';}
+      else{recvPinPending=false;setDot('recv-dot','connected');document.getElementById('recv-status-text').textContent='Connected \u2014 E2EE secured';document.getElementById('view-receive').classList.add('connected-border');document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>';}}
+      else if(d.type==='pin-ok'){recvPinPending=false;hide('recv-pin-section');setDot('recv-dot','connected');document.getElementById('recv-status-text').textContent='Connected \u2014 E2EE secured';document.getElementById('view-receive').classList.add('connected-border');document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>';}
+      else if(d.type==='pin-fail'){clearRecvPin();document.getElementById('recv-status-text').textContent='Wrong password, try again';}
+      else await handleIncoming(d);
+    });
+    conn.on('close',()=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Sender disconnected';cryptoKey=null});
     conn.on('error',()=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Connection failed \u2014 check the code';document.getElementById('recv-connect-btn').disabled=false});
   });
   peer.on('error',e=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Error: '+e.type;document.getElementById('recv-connect-btn').disabled=false});
 }
 
-function handleIncoming(d){
+async function handleIncoming(d){
   if(d.type==='meta'){
     recvMeta[d.name]={...d,received:0};recvBuffers[d.name]=new Array(d.totalChunks);
     document.getElementById('recv-progress-wrap').classList.remove('hidden');
     const key=safeKey(d.name);
     document.getElementById('recv-progress-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${key}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${key}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('recv-file-list');if(list.querySelector('.empty'))list.innerHTML='';
-  }else if(d.type==='chunk'){
+  }else if(d.type==='chunk'&&cryptoKey&&!recvPinPending){
     const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
-    recvBuffers[meta.name][d.index]=d.data;meta.received++;
-    const pct=Math.round(meta.received/meta.totalChunks*100);const key=safeKey(meta.name);
-    const fill=document.getElementById('rfill_'+key);const label=document.getElementById('rpct_'+key);
-    if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
-    if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
+    try{
+      const decrypted=await decryptChunk(d.enc,cryptoKey);
+      recvBuffers[meta.name][d.index]=decrypted;meta.received++;
+      const pct=Math.round(meta.received/meta.totalChunks*100);const key=safeKey(meta.name);
+      const fill=document.getElementById('rfill_'+key);const label=document.getElementById('rpct_'+key);
+      if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
+      if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
+      if(d.ack)conn.send({type:'ack'});
+    }catch(e){console.error('Decrypt failed',e)}
   }
 }
 
