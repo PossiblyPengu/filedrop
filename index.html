@@ -52,8 +52,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
 .share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
 .share-grid input[type=text]{padding:.75rem .5rem;font-size:max(16px,1.4rem)}
-#recv-qr-wrap{opacity:.3;transition:opacity .3s}
-#recv-qr-wrap.has-code{opacity:1}
+#recv-qr-wrap{transition:opacity .3s}
+#recv-qr-wrap:not(.has-code) .qr-inner{opacity:.15}
+#recv-qr-wrap:not(.has-code) .qr-label::after{content:' — type a code'}
 .room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .room-code{font-size:clamp(1.8rem,8vw,2.6rem);font-weight:700;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.15);font-family:var(--mono);line-height:1;animation:codeGlow 2s ease-in-out infinite alternate}
 @keyframes codeGlow{from{text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.1)}to{text-shadow:0 0 30px var(--accent-glow),0 0 60px rgba(0,217,255,.2)}}
@@ -68,9 +69,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .copy-row{display:flex;gap:.5rem;width:100%}
 .copy-row .copy-btn{flex:1}.copy-row .share-btn{flex:1}
 .qr-wrap{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.qr-inner{background:#fff!important;padding:10px;border-radius:6px;display:flex;align-items:center;justify-content:center;width:140px;height:140px;overflow:hidden;position:relative}
-.qr-inner canvas,.qr-inner img{display:block;width:120px!important;height:120px!important;position:absolute;top:10px;left:10px;z-index:2}
-#code-fallback{position:absolute;top:10px;left:10px;z-index:1}
+.qr-inner{background:#fff;padding:10px;border-radius:6px;display:inline-block;line-height:0}
+.qr-inner canvas,.qr-inner img{display:block}
 .qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 .status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
@@ -241,9 +241,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
         </div>
       </div>
       <div class="qr-wrap" id="recv-qr-wrap">
-        <div class="qr-inner" id="recv-qr-container">
-          <div id="code-fallback" style="width:120px;height:120px;background:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:bold;color:#000;text-align:center;"></div>
-        </div>
+        <div class="qr-inner" id="recv-qr-container"></div>
         <div class="qr-label">Scan or share this room</div>
       </div>
     </div>
@@ -295,41 +293,22 @@ async function decryptChunk(encObj,key){const iv=new Uint8Array(encObj.iv);const
 
 function buildQR(code){
   const el=document.getElementById('qr-container');
-  if(!el||typeof QRCode==='undefined')return;
   el.innerHTML='';
-  const size=window.innerWidth<460?160:140;
-  setTimeout(()=>{
-    try{
-      new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
-      const img=el.querySelector('img');const canvas=el.querySelector('canvas');
-      if(img){img.style.width=size+'px';img.style.height=size+'px';}
-      if(canvas){canvas.style.width=size+'px';canvas.style.height=size+'px';}
-    }catch(e){console.error('QR error',e)}
-  },50);
+  const size=window.innerWidth<460?180:140;
+  new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
 }
 
 function updateRecvQR(code){
   const wrap=document.getElementById('recv-qr-wrap');
   const el=document.getElementById('recv-qr-container');
-  const fallback=document.getElementById('code-fallback');
-  if(!wrap||!el)return;
+  el.innerHTML='';
   if(code&&code.length===6){
-    el.innerHTML='';
-    if(fallback){fallback.textContent=code;el.appendChild(fallback);}
-    if(typeof QRCode==='undefined')return;
-    try{
-      const url=roomURL(code);
-      new QRCode(el,{text:url,width:120,height:120,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-      const img=el.querySelector('img');const canvas=el.querySelector('canvas');
-      if(img){img.style.cssText='width:120px!important;height:120px!important;display:block;';}
-      if(canvas){canvas.style.cssText='width:120px!important;height:120px!important;display:block;';}
-      if(!img&&!canvas&&fallback)fallback.style.display='flex';
-    }catch(e){console.error('QR error:',e);}
+    const size=window.innerWidth<460?160:120;
+    new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
     wrap.classList.add('has-code');
   }else{
-    el.innerHTML='';
-    if(fallback)el.appendChild(fallback);
     wrap.classList.remove('has-code');
+    el.innerHTML='<div style="width:120px;height:120px;border:1px dashed var(--border2);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;">QR</div>';
   }
 }
 
