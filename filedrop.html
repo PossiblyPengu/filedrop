@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08090c">
+<title>FileDrop</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#08090c; --surface:#0f1116; --border:#1c1f28; --border2:#252932;
+  --text:#bec8dc; --muted:#3d4557;
+  --accent:#00d4ff; --accent-dim:rgba(0,212,255,.07); --accent-glow:rgba(0,212,255,.2);
+  --green:#00ff88; --green-dim:rgba(0,255,136,.07);
+  --red:#ff3d5a;
+  --mono:'JetBrains Mono',monospace; --sans:'Syne',sans-serif;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px); --safe-right:env(safe-area-inset-right,0px);
+}
+html{height:100%}
+body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:15px;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+#app{position:relative;z-index:1;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(1.5rem + var(--safe-top)) max(1rem,var(--safe-right)) calc(1.5rem + var(--safe-bottom)) max(1rem,var(--safe-left))}
+.header{margin:1.5rem 0 2rem;text-align:center}
+.logo{font-family:var(--sans);font-size:clamp(1.8rem,6vw,2.4rem);font-weight:800;letter-spacing:-.02em;color:#fff}
+.logo span{color:var(--accent);text-shadow:0 0 24px var(--accent-glow)}
+.tagline{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:.4rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:clamp(1.25rem,5vw,2rem);width:100%;max-width:520px;position:relative}
+.card-accent::after{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--accent-glow),transparent)}
+.connected-border{border-color:rgba(0,255,136,.25)!important}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;width:100%;max-width:520px}
+.mode-btn{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;cursor:pointer;text-align:left;transition:border-color .2s,background .2s;color:var(--text);font-family:var(--mono);user-select:none;min-height:120px;display:flex;flex-direction:column;justify-content:flex-end}
+.mode-btn:active{background:var(--accent-dim);border-color:var(--accent)}
+@media(hover:hover){.mode-btn:hover{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 24px var(--accent-glow)}}
+.mode-btn .icon{font-size:1.75rem;margin-bottom:.6rem;display:block}
+.mode-btn .mode-title{font-family:var(--sans);font-size:1.1rem;font-weight:700;color:#fff;display:block}
+.mode-btn .mode-desc{font-size:11px;color:var(--muted);margin-top:.2rem;display:block;line-height:1.4}
+.label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:block}
+.btn-back{background:none;border:none;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 0;margin-bottom:1.25rem;display:flex;align-items:center;gap:.4rem;min-height:44px;transition:color .2s}
+.btn-back:active,.btn-back:hover{color:var(--text)}
+.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch}
+@media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
+.room-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem 1rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem}
+.room-code{font-size:clamp(1.6rem,7vw,2.4rem);font-weight:700;letter-spacing:.3em;color:var(--accent);text-shadow:0 0 18px var(--accent-glow);font-family:var(--mono);line-height:1}
+.room-hint{font-size:10px;color:var(--muted);letter-spacing:.05em}
+.copy-btn{background:var(--accent-dim);border:1px solid rgba(0,212,255,.2);border-radius:6px;color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;cursor:pointer;transition:background .2s;min-height:40px;margin-top:.25rem;user-select:none}
+.copy-btn:active{background:rgba(0,212,255,.15)}
+.share-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;cursor:pointer;transition:all .2s;min-height:40px;user-select:none}
+.share-btn:active{border-color:var(--accent);color:var(--accent)}
+.copy-row{display:flex;gap:.5rem;width:100%}
+.copy-row .copy-btn{flex:1}.copy-row .share-btn{flex:1}
+.qr-wrap{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem}
+.qr-inner{background:#fff;padding:10px;border-radius:6px;display:inline-block;line-height:0}
+.qr-inner canvas,.qr-inner img{display:block}
+.qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
+.status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+.dot.init{animation:pulse 1.2s infinite}
+.dot.waiting{background:var(--accent);animation:pulse 1.2s infinite}
+.dot.connected{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:none}
+.dot.error{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.divider{height:1px;background:var(--border);margin:1.25rem 0}
+.dropzone{border:1px dashed var(--border2);border-radius:8px;padding:1.75rem 1rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;user-select:none}
+.dropzone:active,.dropzone.dragover{border-color:var(--accent);background:var(--accent-dim)}
+@media(hover:hover){.dropzone:hover{border-color:var(--accent);background:var(--accent-dim)}}
+.dropzone input{display:none}
+.dz-icon{font-size:1.6rem;display:block;margin-bottom:.5rem}
+.dz-text{font-size:12px;color:var(--muted)}
+.dz-text span{color:var(--accent)}
+.file-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.75rem}
+.file-item{display:flex;align-items:center;gap:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.65rem .875rem;font-size:13px;min-height:48px}
+.fi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.fi-size{color:var(--muted);font-size:11px;flex-shrink:0}
+.fi-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;flex-shrink:0;transition:color .2s;font-family:var(--mono);padding:.25rem .5rem;margin:-.25rem -.5rem;min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center}
+.fi-remove:active,.fi-remove:hover{color:var(--red)}
+.progress-section{margin-top:1.25rem}
+.prog-item{margin-bottom:.875rem}
+.prog-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:.35rem}
+.prog-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78%}
+.prog-pct{color:var(--accent);flex-shrink:0}
+.prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);box-shadow:0 0 6px var(--accent-glow);transition:width .1s linear;border-radius:2px}
+.prog-fill.done{background:var(--green);box-shadow:0 0 6px rgba(0,255,136,.3)}
+.btn{width:100%;padding:1rem;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;min-height:52px;user-select:none}
+.btn:active:not(:disabled){opacity:.75}
+@media(hover:hover){.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-primary{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-primary:active:not(:disabled){background:rgba(0,212,255,.14)}
+.btn-send{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.btn-send:active:not(:disabled){background:rgba(0,255,136,.14)}
+input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;color:var(--text);font-family:var(--mono);font-size:max(16px,1.5rem);letter-spacing:.25em;outline:none;transition:border-color .2s;text-transform:uppercase;text-align:center}
+input[type=text]:focus{border-color:var(--accent)}
+.recv-item{display:flex;align-items:center;gap:.6rem;background:var(--bg);border:1px solid rgba(0,255,136,.18);border-radius:6px;padding:.65rem .875rem;font-size:13px;min-height:48px;animation:slidein .3s ease}
+@keyframes slidein{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.ri-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.ri-size{color:var(--muted);font-size:11px;flex-shrink:0}
+.dl-btn{background:var(--green-dim);border:1px solid rgba(0,255,136,.25);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .75rem;cursor:pointer;text-decoration:none;transition:background .2s;flex-shrink:0;min-height:36px;display:flex;align-items:center}
+.dl-btn:active{background:rgba(0,255,136,.14)}
+.empty{font-size:12px;color:var(--muted);text-align:center;padding:1.25rem 0}
+.footer{margin-top:2rem;font-size:10px;color:var(--muted);letter-spacing:.1em;text-align:center;padding-bottom:.5rem}
+.hidden{display:none!important}
+.mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
+@media(max-width:400px){
+  .mode-grid{grid-template-columns:1fr}
+  .mode-btn{min-height:80px;flex-direction:row;align-items:center;gap:1rem;padding:1rem 1.25rem;justify-content:flex-start}
+  .mode-btn .icon{font-size:1.5rem;margin-bottom:0}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="logo">File<span>Drop</span></div>
+    <div class="tagline">Instant device-to-device &middot; No uploads &middot; No servers</div>
+  </div>
+
+  <!-- HOME -->
+  <div id="view-home">
+    <div class="mode-grid">
+      <button class="mode-btn" onclick="startSend()">
+        <span class="icon">&#128228;</span>
+        <span class="mode-title">Send</span>
+        <span class="mode-desc">Create a room &amp; share files</span>
+      </button>
+      <button class="mode-btn" onclick="startReceive()">
+        <span class="icon">&#128229;</span>
+        <span class="mode-title">Receive</span>
+        <span class="mode-desc">Scan or enter a room code</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- SEND -->
+  <div id="view-send" class="card card-accent hidden">
+    <button class="btn-back" onclick="goHome()">&#8592; Back</button>
+    <span class="label">Your Room</span>
+    <div class="share-grid">
+      <div class="room-box">
+        <div class="room-code" id="send-code">&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;</div>
+        <div class="room-hint">Room Code</div>
+        <div class="copy-row">
+          <button class="copy-btn" onclick="copyCode()">Copy</button>
+          <button class="share-btn" onclick="shareRoom()">Share</button>
+        </div>
+      </div>
+      <div class="qr-wrap">
+        <div class="qr-inner" id="qr-container"></div>
+        <div class="qr-label">Scan to join on another device</div>
+      </div>
+    </div>
+    <div class="status">
+      <div class="dot init" id="send-dot"></div>
+      <span id="send-status-text">Initializing&hellip;</span>
+    </div>
+    <div class="divider"></div>
+    <span class="label">Files to Send</span>
+    <div class="dropzone" id="dropzone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)">
+      <input type="file" id="file-input" multiple onchange="onFilesSelected(event)">
+      <span class="dz-icon">&#128193;</span>
+      <div class="dz-text">Tap to pick files<br><span>or drag &amp; drop</span></div>
+    </div>
+    <div class="file-list" id="send-file-list"></div>
+    <div id="transfer-progress" class="progress-section hidden">
+      <span class="label">Sending</span>
+      <div id="progress-items"></div>
+    </div>
+    <div class="mt-3">
+      <button class="btn btn-send" id="send-btn" onclick="sendFiles()" disabled>Send Files</button>
+    </div>
+  </div>
+
+  <!-- RECEIVE -->
+  <div id="view-receive" class="card card-accent hidden">
+    <button class="btn-back" onclick="goHome()">&#8592; Back</button>
+    <span class="label">Room Code</span>
+    <input type="text" id="recv-code-input" maxlength="6" placeholder="XXXXXX"
+      autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
+      oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6)"
+      onkeydown="if(event.key==='Enter')connectToPeer()">
+    <div class="mt-2">
+      <button class="btn btn-primary" id="recv-connect-btn" onclick="connectToPeer()">Join Room</button>
+    </div>
+    <div class="status">
+      <div class="dot" id="recv-dot"></div>
+      <span id="recv-status-text">Enter a code to connect</span>
+    </div>
+    <div class="divider"></div>
+    <span class="label">Received Files</span>
+    <div id="recv-progress-wrap" class="progress-section hidden">
+      <div id="recv-progress-items"></div>
+    </div>
+    <div class="file-list" id="recv-file-list">
+      <div class="empty">Waiting for files&hellip;</div>
+    </div>
+  </div>
+
+  <div class="footer">WebRTC peer-to-peer &middot; Files never leave your devices</div>
+</div>
+<script>
+const CHUNK=65536;
+let peer=null,conn=null,selectedFiles=[],recvBuffers={},recvMeta={};
+
+function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
+function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
+function setDot(id,s){document.getElementById(id).className='dot '+s}
+function roomURL(code){const u=new URL(window.location.href);u.searchParams.set('room',code);return u.toString()}
+function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
+
+function buildQR(code){
+  const el=document.getElementById('qr-container');
+  el.innerHTML='';
+  const size=window.innerWidth<460?180:140;
+  new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+}
+
+function copyCode(){
+  const code=document.getElementById('send-code').textContent;
+  const btn=document.querySelector('.copy-btn');
+  const orig=btn.textContent;
+  navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=code;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000);
+  });
+}
+
+function shareRoom(){
+  const code=document.getElementById('send-code').textContent;
+  if(navigator.share){navigator.share({title:'FileDrop Room',text:'Join my FileDrop room: '+code,url:roomURL(code)})}else{copyCode()}
+}
+
+function show(id){document.getElementById(id).classList.remove('hidden')}
+function hide(id){document.getElementById(id).classList.add('hidden')}
+
+function goHome(){
+  if(peer){try{peer.destroy()}catch(e){}peer=null}
+  conn=null;selectedFiles=[];recvBuffers={};recvMeta={};
+  show('view-home');hide('view-send');hide('view-receive');
+  document.getElementById('send-file-list').innerHTML='';
+  document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>';
+  document.getElementById('progress-items').innerHTML='';
+  document.getElementById('recv-progress-items').innerHTML='';
+  document.getElementById('transfer-progress').classList.add('hidden');
+  document.getElementById('recv-progress-wrap').classList.add('hidden');
+  const sb=document.getElementById('send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';
+  document.getElementById('recv-code-input').value='';
+  document.getElementById('recv-connect-btn').disabled=false;
+  document.getElementById('send-code').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
+  document.getElementById('qr-container').innerHTML='';
+  history.replaceState({},'',window.location.pathname);
+}
+
+function startSend(){
+  hide('view-home');show('view-send');
+  const code=randCode();
+  document.getElementById('send-code').textContent=code;
+  buildQR(code);
+  document.getElementById('send-status-text').textContent='Initializing\u2026';
+  peer=new Peer(code,{host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+  peer.on('open',()=>{setDot('send-dot','waiting');document.getElementById('send-status-text').textContent='Waiting for receiver\u2026'});
+  peer.on('connection',c=>{
+    conn=c;
+    conn.on('open',()=>{setDot('send-dot','connected');document.getElementById('send-status-text').textContent='Receiver connected \u2014 ready to send';document.getElementById('view-send').classList.add('connected-border');updateSendBtn()});
+    conn.on('close',()=>{setDot('send-dot','waiting');document.getElementById('send-status-text').textContent='Receiver disconnected';conn=null;updateSendBtn()});
+    conn.on('error',()=>{setDot('send-dot','error');document.getElementById('send-status-text').textContent='Connection error'});
+  });
+  peer.on('error',e=>{setDot('send-dot','error');document.getElementById('send-status-text').textContent='Error: '+e.type});
+}
+
+function onDragOver(e){e.preventDefault();document.getElementById('dropzone').classList.add('dragover')}
+function onDragLeave(){document.getElementById('dropzone').classList.remove('dragover')}
+function onDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('dragover');addFiles([...e.dataTransfer.files])}
+function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
+
+function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
+function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
+function renderSendList(){document.getElementById('send-file-list').innerHTML=selectedFiles.map((f,i)=>`<div class="file-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`).join('')}
+function updateSendBtn(){document.getElementById('send-btn').disabled=!(conn&&selectedFiles.length>0)}
+
+async function sendFiles(){
+  if(!conn||!selectedFiles.length)return;
+  const btn=document.getElementById('send-btn');btn.disabled=true;
+  document.getElementById('transfer-progress').classList.remove('hidden');
+  const wrap=document.getElementById('progress-items');wrap.innerHTML='';
+  selectedFiles.forEach((f,i)=>{wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${f.name}</span><span class="prog-pct" id="pct${i}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
+  for(let i=0;i<selectedFiles.length;i++)await sendOneFile(selectedFiles[i],i);
+  btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
+}
+
+function sendOneFile(file,idx){
+  return new Promise(resolve=>{
+    const reader=new FileReader();reader.readAsArrayBuffer(file);
+    reader.onload=()=>{
+      const buf=reader.result;const totalChunks=Math.ceil(buf.byteLength/CHUNK)||1;
+      conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks});
+      let sent=0;
+      function next(){if(sent>=totalChunks){updateProg(idx,100,true);return resolve()}const start=sent*CHUNK;conn.send({type:'chunk',index:sent,data:buf.slice(start,start+CHUNK)});sent++;updateProg(idx,Math.round(sent/totalChunks*100),false);setTimeout(next,0)}
+      next();
+    };
+  });
+}
+
+function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);const l=document.getElementById('pct'+idx);if(f){f.style.width=pct+'%';if(done)f.classList.add('done')}if(l)l.textContent=pct+'%'}
+
+function startReceive(autoCode){
+  hide('view-home');show('view-receive');
+  if(autoCode){document.getElementById('recv-code-input').value=autoCode;document.getElementById('recv-status-text').textContent='Auto-joining room '+autoCode+'\u2026';setDot('recv-dot','waiting');setTimeout(()=>connectToPeer(),500)}
+}
+
+function connectToPeer(){
+  const code=document.getElementById('recv-code-input').value.trim().toUpperCase();
+  if(code.length!==6)return;
+  document.getElementById('recv-connect-btn').disabled=true;
+  setDot('recv-dot','waiting');document.getElementById('recv-status-text').textContent='Connecting\u2026';
+  if(peer){try{peer.destroy()}catch(e){}}
+  peer=new Peer({host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+  peer.on('open',()=>{
+    conn=peer.connect(code,{reliable:true});
+    conn.on('open',()=>{setDot('recv-dot','connected');document.getElementById('recv-status-text').textContent='Connected \u2014 waiting for files';document.getElementById('view-receive').classList.add('connected-border');document.getElementById('recv-file-list').innerHTML='<div class="empty">Waiting for files\u2026</div>'});
+    conn.on('data',d=>handleIncoming(d));
+    conn.on('close',()=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Sender disconnected'});
+    conn.on('error',()=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Connection failed \u2014 check the code';document.getElementById('recv-connect-btn').disabled=false});
+  });
+  peer.on('error',e=>{setDot('recv-dot','error');document.getElementById('recv-status-text').textContent='Error: '+e.type;document.getElementById('recv-connect-btn').disabled=false});
+}
+
+function handleIncoming(d){
+  if(d.type==='meta'){
+    recvMeta[d.name]={...d,received:0};recvBuffers[d.name]=new Array(d.totalChunks);
+    document.getElementById('recv-progress-wrap').classList.remove('hidden');
+    const key=safeKey(d.name);
+    document.getElementById('recv-progress-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${key}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${key}" style="width:0%"></div></div></div>`;
+    const list=document.getElementById('recv-file-list');if(list.querySelector('.empty'))list.innerHTML='';
+  }else if(d.type==='chunk'){
+    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
+    recvBuffers[meta.name][d.index]=d.data;meta.received++;
+    const pct=Math.round(meta.received/meta.totalChunks*100);const key=safeKey(meta.name);
+    const fill=document.getElementById('rfill_'+key);const label=document.getElementById('rpct_'+key);
+    if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
+    if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
+  }
+}
+
+function assembleFile(name){
+  const meta=recvMeta[name];const blob=new Blob(recvBuffers[name],{type:meta.mime||'application/octet-stream'});const url=URL.createObjectURL(blob);
+  const div=document.createElement('div');div.className='recv-item';
+  div.innerHTML=`<span>${fileIcon(name)}</span><span class="ri-name" title="${name}">${name}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${name}">Save</a>`;
+  document.getElementById('recv-file-list').appendChild(div);
+  const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  delete recvBuffers[name];delete recvMeta[name];
+}
+
+window.addEventListener('load',()=>{
+  const room=new URLSearchParams(window.location.search).get('room');
+  if(room&&/^[A-Z0-9]{6}$/i.test(room))startReceive(room.toUpperCase());
+});
+</script>
+</body>
+</html>
