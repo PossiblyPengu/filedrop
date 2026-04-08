@@ -339,7 +339,7 @@ async function exportKey(key){const buf=await crypto.subtle.exportKey('raw',key)
 async function importKey(arr){return await crypto.subtle.importKey('raw',new Uint8Array(arr),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);const out=new Uint8Array(12+enc.byteLength);out.set(iv,0);out.set(new Uint8Array(enc),12);return out.buffer;}
 async function decryptChunk(buf,key){return await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(buf,0,12)},key,new Uint8Array(buf,12));}
-async function waitForBuffer(){const dc=conn&&conn._dc;if(!dc)return;while(dc.bufferedAmount>MAX_BUFFER)await new Promise(r=>setTimeout(r,30));}
+async function waitForBuffer(){const dc=conn&&(conn.dataChannel||conn._dc);if(!dc)return;while(dc.bufferedAmount>MAX_BUFFER)await new Promise(r=>setTimeout(r,30));}
 
 function buildQR(containerId,code){
   const el=document.getElementById(containerId);el.innerHTML='';
@@ -359,7 +359,7 @@ function shareRoomLink(){
 
 function getHostPin(){const v=id=>document.getElementById(id).value;const p=v('host-pin1')+v('host-pin2')+v('host-pin3')+v('host-pin4');return p.length===4?p:null}
 function clearGuestPin(){['guest-pin1','guest-pin2','guest-pin3','guest-pin4'].forEach(id=>document.getElementById(id).value='');document.getElementById('guest-pin1').focus()}
-function submitPin(){const v=id=>document.getElementById(id).value;const p=v('guest-pin1')+v('guest-pin2')+v('guest-pin3')+v('guest-pin4');if(p.length===4&&conn)conn.send(JSON.stringify({type:'pin',pin:p}))}
+function submitPin(){const v=id=>document.getElementById(id).value;const p=v('guest-pin1')+v('guest-pin2')+v('guest-pin3')+v('guest-pin4');if(p.length===4&&conn)conn.send({type:'pin',pin:p})}
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
@@ -414,18 +414,16 @@ function createRoom(){
     conn.on('open',async()=>{
       roomPin=getHostPin();
       encryptionEnabled=document.getElementById('enc-toggle').checked;
-      if(encryptionEnabled){cryptoKey=await genCryptoKey();conn.send(JSON.stringify({type:'key',key:await exportKey(cryptoKey),hasPin:!!roomPin,encrypted:true}));}
-      else{cryptoKey=null;conn.send(JSON.stringify({type:'key',key:null,hasPin:!!roomPin,encrypted:false}));}
+      if(encryptionEnabled){cryptoKey=await genCryptoKey();conn.send({type:'key',key:await exportKey(cryptoKey),hasPin:!!roomPin,encrypted:true});}
+      else{cryptoKey=null;conn.send({type:'key',key:null,hasPin:!!roomPin,encrypted:false});}
       if(!roomPin)onConnected();
       else setStatus('Waiting for password\u2026');
     });
     conn.on('data',async d=>{
-      if(d instanceof ArrayBuffer||ArrayBuffer.isView(d)){await handleChunk(d instanceof ArrayBuffer?d:d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));return;}
-      const msg=typeof d==='string'?JSON.parse(d):d;
-      if(msg.type==='pin'){
-        if(msg.pin===roomPin){conn.send(JSON.stringify({type:'pin-ok'}));onConnected();}
-        else{conn.send(JSON.stringify({type:'pin-fail'}));setStatus('Wrong password \u2014 waiting\u2026');}
-      } else await handleIncoming(msg);
+      if(d.type==='pin'){
+        if(d.pin===roomPin){conn.send({type:'pin-ok'});onConnected();}
+        else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026');}
+      } else await handleIncoming(d);
     });
     conn.on('close',()=>{setDot('waiting');setStatus('Peer disconnected');conn=null;cryptoKey=null;updateSendBtn()});
     conn.on('error',()=>{setDot('error');setStatus('Connection error')});
@@ -452,19 +450,17 @@ function joinRoom(autoCode){
 }
 
 function doConnect(code){
-  conn=peer.connect(code,{reliable:true,serialization:'raw'});
+  conn=peer.connect(code,{reliable:true});
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
-    if(d instanceof ArrayBuffer||ArrayBuffer.isView(d)){await handleChunk(d instanceof ArrayBuffer?d:d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));return;}
-    const msg=typeof d==='string'?JSON.parse(d):d;
-    if(msg.type==='key'){
-      encryptionEnabled=msg.encrypted!==false;
-      cryptoKey=encryptionEnabled&&msg.key?await importKey(msg.key):null;
-      if(msg.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
+    if(d.type==='key'){
+      encryptionEnabled=d.encrypted!==false;
+      cryptoKey=encryptionEnabled&&d.key?await importKey(d.key):null;
+      if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
-    } else if(msg.type==='pin-ok'){pinPending=false;onConnected();}
-    else if(msg.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
-    else await handleIncoming(msg);
+    } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
+    else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
+    else await handleIncoming(d);
   });
   conn.on('close',()=>{cryptoKey=null;scheduleReconnect();});
   conn.on('error',()=>{scheduleReconnect();});
@@ -529,7 +525,7 @@ async function sendFiles(){
 async function sendOneFile(file,idx){
   const totalChunks=Math.ceil(file.size/CHUNK)||1;
   if(!conn||!conn.open)return;
-  conn.send(JSON.stringify({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks}));
+  conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks});
   for(let sent=0;sent<totalChunks;sent++){
     if(!conn||!conn.open)return;
     const start=sent*CHUNK;
@@ -540,18 +536,10 @@ async function sendOneFile(file,idx){
       try{
         if(!conn||!conn.open)return;
         await waitForBuffer();
-        let payload;
-        if(encryptionEnabled&&cryptoKey){
-          const enc=await encryptChunk(chunkBuf,cryptoKey);
-          payload=new Uint8Array(4+enc.byteLength);
-          new DataView(payload.buffer).setUint32(0,sent,false);
-          payload.set(new Uint8Array(enc),4);
-        }else{
-          payload=new Uint8Array(4+chunkBuf.byteLength);
-          new DataView(payload.buffer).setUint32(0,sent,false);
-          payload.set(new Uint8Array(chunkBuf),4);
-        }
-        conn.send(payload.buffer);
+        let d;
+        if(encryptionEnabled&&cryptoKey){d=new Uint8Array(await encryptChunk(chunkBuf,cryptoKey));}
+        else{d=new Uint8Array(chunkBuf);}
+        conn.send({type:'b',i:sent,d});
         updateProg(idx,Math.round((sent+1)/totalChunks*100),sent+1===totalChunks);
         break;
       }catch(e){
@@ -567,22 +555,6 @@ async function sendOneFile(file,idx){
 
 function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);const l=document.getElementById('pct'+idx);if(f){f.style.width=pct+'%';if(done)f.classList.add('done')}if(l)l.textContent=pct+'%'}
 
-async function handleChunk(buf){
-  if(pinPending)return;
-  const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
-  const index=new DataView(buf).getUint32(0,false);
-  try{
-    let data;
-    if(encryptionEnabled&&cryptoKey){data=await decryptChunk(buf.slice(4),cryptoKey);}
-    else{data=buf.slice(4);}
-    recvBuffers[meta.name][index]=data;meta.received++;
-    const pct=Math.round(meta.received/meta.totalChunks*100);const k=safeKey(meta.name);
-    const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
-    if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
-    if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
-  }catch(e){console.error('Chunk error',e)}
-}
-
 async function handleIncoming(d){
   if(d.type==='meta'){
     recvMeta[d.name]={...d,received:0};recvBuffers[d.name]=new Array(d.totalChunks);
@@ -590,6 +562,17 @@ async function handleIncoming(d){
     const k=safeKey(d.name);
     document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
+  }else if(d.type==='b'&&!pinPending){
+    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
+    try{
+      const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
+      let data;if(encryptionEnabled&&cryptoKey){data=await decryptChunk(buf,cryptoKey);}else{data=buf;}
+      recvBuffers[meta.name][d.i]=data;meta.received++;
+      const pct=Math.round(meta.received/meta.totalChunks*100);const k=safeKey(meta.name);
+      const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
+      if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
+      if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
+    }catch(e){console.error('Chunk error',e)}
   }
 }
 
