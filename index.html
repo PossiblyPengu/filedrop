@@ -68,9 +68,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .copy-row{display:flex;gap:.5rem;width:100%}
 .copy-row .copy-btn{flex:1}.copy-row .share-btn{flex:1}
 .qr-wrap{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.qr-inner{background:#fff;padding:10px;border-radius:6px;display:flex;align-items:center;justify-content:center;width:140px;height:140px;overflow:hidden}
-.qr-inner:empty{background:#e0e0e0}
-.qr-inner canvas,.qr-inner img{display:block;width:120px!important;height:120px!important}
+.qr-inner{background:#fff!important;padding:10px;border-radius:6px;display:flex;align-items:center;justify-content:center;width:140px;height:140px;overflow:hidden;position:relative}
+.qr-inner canvas,.qr-inner img{display:block;width:120px!important;height:120px!important;position:absolute;top:10px;left:10px;z-index:2}
+#code-fallback{position:absolute;top:10px;left:10px;z-index:1}
 .qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 .status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
@@ -241,7 +241,9 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
         </div>
       </div>
       <div class="qr-wrap" id="recv-qr-wrap">
-        <div class="qr-inner" id="recv-qr-container"></div>
+        <div class="qr-inner" id="recv-qr-container">
+          <div id="code-fallback" style="width:120px;height:120px;background:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:bold;color:#000;text-align:center;"></div>
+        </div>
         <div class="qr-label">Scan or share this room</div>
       </div>
     </div>
@@ -309,28 +311,24 @@ function buildQR(code){
 function updateRecvQR(code){
   const wrap=document.getElementById('recv-qr-wrap');
   const el=document.getElementById('recv-qr-container');
-  console.log('updateRecvQR called with:',code,'QRCode exists:',typeof QRCode!=='undefined');
-  if(!wrap||!el){console.log('Missing elements');return;}
-  if(typeof QRCode==='undefined'){console.error('QRCode library not loaded');el.innerHTML='<div style="width:120px;height:120px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;text-align:center;padding:10px;">Code:<br>'+code+'</div>';return;}
+  const fallback=document.getElementById('code-fallback');
+  if(!wrap||!el)return;
   if(code&&code.length===6){
     el.innerHTML='';
-    const size=120;
+    if(fallback){fallback.textContent=code;el.appendChild(fallback);}
+    if(typeof QRCode==='undefined')return;
     try{
       const url=roomURL(code);
-      console.log('Generating QR for URL:',url);
-      const qr=new QRCode(el,{text:url,width:size,height:size,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M,useSVG:false});
-      console.log('QR object created:',qr);
-      setTimeout(()=>{
-        const canvas=el.querySelector('canvas');const img=el.querySelector('img');
-        console.log('Canvas found:',!!canvas,'Img found:',!!img);
-        if(canvas){canvas.style.width=size+'px';canvas.style.height=size+'px';canvas.style.display='block';}
-        if(img&&img.src){img.style.width=size+'px';img.style.height=size+'px';img.style.display='block';}
-        if(!canvas&&!img){el.innerHTML='<div style="width:120px;height:120px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;text-align:center;padding:10px;">'+code+'</div>';}
-      },100);
-      wrap.classList.add('has-code');
-    }catch(e){console.error('QR error:',e);el.innerHTML='<div style="width:120px;height:120px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;text-align:center;padding:10px;">'+code+'</div>';}
+      new QRCode(el,{text:url,width:120,height:120,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+      const img=el.querySelector('img');const canvas=el.querySelector('canvas');
+      if(img){img.style.cssText='width:120px!important;height:120px!important;display:block;';}
+      if(canvas){canvas.style.cssText='width:120px!important;height:120px!important;display:block;';}
+      if(!img&&!canvas&&fallback)fallback.style.display='flex';
+    }catch(e){console.error('QR error:',e);}
+    wrap.classList.add('has-code');
   }else{
     el.innerHTML='';
+    if(fallback)el.appendChild(fallback);
     wrap.classList.remove('has-code');
   }
 }
