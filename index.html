@@ -134,7 +134,16 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
 .speed-info span{color:var(--accent)}
 input[type=password]{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;color:var(--text);font-family:var(--mono);font-size:14px;letter-spacing:.1em;outline:none;transition:all .2s;text-align:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
 input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
-.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin-top:.5rem}
+.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin:.5rem 0}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;margin-bottom:.25rem}
+.toggle-label-main{font-size:13px;color:var(--text);display:block;font-weight:500}
+.toggle-label-sub{font-size:10px;color:var(--muted);letter-spacing:.06em}
+.toggle-switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border2);border-radius:12px;transition:background .2s;cursor:pointer}
+.toggle-switch input:checked+.toggle-track{background:var(--accent)}
+.toggle-track::after{content:'';position:absolute;width:18px;height:18px;top:3px;left:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle-switch input:checked+.toggle-track::after{transform:translateX(20px)}
 .pin-wrap input[type=password]{width:3rem;padding:.5rem;text-align:center;font-size:1.2rem;letter-spacing:.2em}
 .retry-badge{font-size:10px;color:var(--muted);background:rgba(255,77,106,.1);border:1px solid var(--red-dim);border-radius:4px;padding:.1rem .4rem;margin-left:.5rem}
 .camera-btn{position:fixed;bottom:calc(1.5rem + var(--safe-bottom));right:1.5rem;width:56px;height:56px;border-radius:50%;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,217,255,.2);transition:all .2s;z-index:50;display:flex;align-items:center;justify-content:center}
@@ -213,6 +222,16 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
     <div id="room-pin-setup" class="hidden">
       <div class="divider"></div>
+      <div class="toggle-row">
+        <div>
+          <span class="toggle-label-main">End-to-end encryption</span>
+          <span class="toggle-label-sub">AES-256-GCM</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="enc-toggle" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
       <span class="label">Room Password (Optional)</span>
       <div class="pin-wrap">
         <input type="password" id="host-pin1" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
@@ -272,11 +291,12 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 <button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
 <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
 <script>
-const CHUNK=65536;
+const CHUNK=262144;
+const MAX_BUFFER=4*1024*1024;
 const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}};
 let peer=null,conn=null,isHost=false;
 let selectedFiles=[],recvBuffers={},recvMeta={};
-let cryptoKey=null,roomPin=null,pinPending=false;
+let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
 let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=3,RETRY_DELAY=500,MAX_RECONNECT=5;
@@ -294,8 +314,9 @@ function setStatus(t){document.getElementById('room-status-text').textContent=t}
 async function genCryptoKey(){return await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt'])}
 async function exportKey(key){const buf=await crypto.subtle.exportKey('raw',key);return Array.from(new Uint8Array(buf))}
 async function importKey(arr){return await crypto.subtle.importKey('raw',new Uint8Array(arr),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);return{iv:Array.from(iv),data:Array.from(new Uint8Array(enc))}}
-async function decryptChunk(obj,key){return await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(obj.iv)},key,new Uint8Array(obj.data))}
+async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);const out=new Uint8Array(12+enc.byteLength);out.set(iv,0);out.set(new Uint8Array(enc),12);return out.buffer;}
+async function decryptChunk(buf,key){return await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(buf,0,12)},key,new Uint8Array(buf,12));}
+async function waitForBuffer(){const dc=conn&&conn._dc;if(!dc)return;while(dc.bufferedAmount>MAX_BUFFER)await new Promise(r=>setTimeout(r,30));}
 
 function buildQR(containerId,code){
   const el=document.getElementById(containerId);el.innerHTML='';
@@ -319,7 +340,7 @@ function submitPin(){const v=id=>document.getElementById(id).value;const p=v('gu
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;
   selectedFiles=[];recvBuffers={};recvMeta={};
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
   currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
@@ -349,7 +370,7 @@ function enterRoom(code){
 
 function onConnected(){
   reconnectAttempts=0;
-  setDot('connected');setStatus('Connected \u2014 E2EE secured');
+  setDot('connected');setStatus(encryptionEnabled?'Connected \u2014 E2EE secured':'Connected \u2014 no encryption');
   document.getElementById('view-room').classList.add('connected-border');
   hide('room-pin-setup');hide('room-pin-entry');
   show('camera-btn');updateSendBtn();
@@ -369,12 +390,14 @@ function createRoom(){
     conn=c;
     conn.on('open',async()=>{
       roomPin=getHostPin();
-      cryptoKey=await genCryptoKey();
-      conn.send({type:'key',key:await exportKey(cryptoKey),hasPin:!!roomPin});
+      encryptionEnabled=document.getElementById('enc-toggle').checked;
+      if(encryptionEnabled){cryptoKey=await genCryptoKey();conn.send({type:'key',key:await exportKey(cryptoKey),hasPin:!!roomPin,encrypted:true});}
+      else{cryptoKey=null;conn.send({type:'key',key:null,hasPin:!!roomPin,encrypted:false});}
       if(!roomPin)onConnected();
       else setStatus('Waiting for password\u2026');
     });
     conn.on('data',async d=>{
+      if(d instanceof ArrayBuffer){await handleChunk(d);return;}
       if(d.type==='pin'){
         if(d.pin===roomPin){conn.send({type:'pin-ok'});onConnected();}
         else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026');}
@@ -408,8 +431,10 @@ function doConnect(code){
   conn=peer.connect(code,{reliable:true});
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
+    if(d instanceof ArrayBuffer){await handleChunk(d);return;}
     if(d.type==='key'){
-      cryptoKey=await importKey(d.key);
+      encryptionEnabled=d.encrypted!==false;
+      cryptoKey=encryptionEnabled&&d.key?await importKey(d.key):null;
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
     } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
@@ -430,9 +455,10 @@ function scheduleReconnect(){
 }
 
 async function resumeSend(){
-  if(!conn||!cryptoKey||pendingSendIdx>=selectedFiles.length)return;
+  if(!conn||pendingSendIdx>=selectedFiles.length)return;
+  if(encryptionEnabled&&!cryptoKey)return;
   show('room-send-progress');
-  const btn=document.getElementById('room-send-btn');btn.disabled=true;btn.textContent='Resuming\u2026';
+  const btn=document.getElementById('room-send-btn');btn.disabled=true;
   sendStartTime=Date.now();sendBytesSent=0;
   sendTotalBytes=selectedFiles.slice(pendingSendIdx).reduce((a,f)=>a+f.size,0);
   const interval=setInterval(updateSpeed,500);
@@ -449,7 +475,7 @@ function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
 function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('')}
-function updateSendBtn(){const ready=conn&&cryptoKey&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
+function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
   const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;
@@ -475,26 +501,61 @@ async function sendFiles(){
 }
 
 async function sendOneFile(file,idx){
-  const reader=new FileReader();reader.readAsArrayBuffer(file);
-  await new Promise(r=>reader.onload=r);
-  const buf=reader.result;const totalChunks=Math.ceil(buf.byteLength/CHUNK)||1;
+  const totalChunks=Math.ceil(file.size/CHUNK)||1;
+  if(!conn||!conn.open)return;
   conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks});
-  for(let sent=0,retries=0;sent<totalChunks;){
-    const start=sent*CHUNK;const chunkSize=Math.min(CHUNK,buf.byteLength-start);sendBytesSent+=chunkSize;
-    try{
-      const enc=await encryptChunk(buf.slice(start,start+CHUNK),cryptoKey);
-      conn.send({type:'chunk',index:sent,enc});
-      sent++;updateProg(idx,Math.round(sent/totalChunks*100),sent===totalChunks);retries=0;
-    }catch(e){
-      retries++;if(retries>MAX_RETRIES)throw new Error('Max retries exceeded');
-      const badge=document.getElementById('retry'+idx);if(badge){badge.textContent='retry '+retries;badge.classList.remove('hidden');}
-      sendBytesSent-=chunkSize;await new Promise(r=>setTimeout(r,RETRY_DELAY*retries));
+  for(let sent=0;sent<totalChunks;sent++){
+    if(!conn||!conn.open)return;
+    const start=sent*CHUNK;
+    const chunkBuf=await file.slice(start,Math.min(start+CHUNK,file.size)).arrayBuffer();
+    sendBytesSent+=chunkBuf.byteLength;
+    let retries=0;
+    while(true){
+      try{
+        if(!conn||!conn.open)return;
+        await waitForBuffer();
+        let payload;
+        if(encryptionEnabled&&cryptoKey){
+          const enc=await encryptChunk(chunkBuf,cryptoKey);
+          payload=new Uint8Array(4+enc.byteLength);
+          new DataView(payload.buffer).setUint32(0,sent,false);
+          payload.set(new Uint8Array(enc),4);
+        }else{
+          payload=new Uint8Array(4+chunkBuf.byteLength);
+          new DataView(payload.buffer).setUint32(0,sent,false);
+          payload.set(new Uint8Array(chunkBuf),4);
+        }
+        conn.send(payload.buffer);
+        updateProg(idx,Math.round((sent+1)/totalChunks*100),sent+1===totalChunks);
+        break;
+      }catch(e){
+        if(!conn||!conn.open)return;
+        retries++;if(retries>MAX_RETRIES)return;
+        const badge=document.getElementById('retry'+idx);if(badge){badge.textContent='retry '+retries;badge.classList.remove('hidden');}
+        await new Promise(r=>setTimeout(r,RETRY_DELAY*retries));
+      }
     }
-    await new Promise(r=>setTimeout(r,0));
+    if(sent%4===0)await new Promise(r=>setTimeout(r,0));
   }
 }
 
 function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);const l=document.getElementById('pct'+idx);if(f){f.style.width=pct+'%';if(done)f.classList.add('done')}if(l)l.textContent=pct+'%'}
+
+async function handleChunk(buf){
+  if(pinPending)return;
+  const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
+  const index=new DataView(buf).getUint32(0,false);
+  try{
+    let data;
+    if(encryptionEnabled&&cryptoKey){data=await decryptChunk(buf.slice(4),cryptoKey);}
+    else{data=buf.slice(4);}
+    recvBuffers[meta.name][index]=data;meta.received++;
+    const pct=Math.round(meta.received/meta.totalChunks*100);const k=safeKey(meta.name);
+    const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
+    if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
+    if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
+  }catch(e){console.error('Chunk error',e)}
+}
 
 async function handleIncoming(d){
   if(d.type==='meta'){
@@ -503,15 +564,6 @@ async function handleIncoming(d){
     const k=safeKey(d.name);
     document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
-  }else if(d.type==='chunk'&&cryptoKey&&!pinPending){
-    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
-    try{
-      recvBuffers[meta.name][d.index]=await decryptChunk(d.enc,cryptoKey);meta.received++;
-      const pct=Math.round(meta.received/meta.totalChunks*100);const k=safeKey(meta.name);
-      const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
-      if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
-      if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
-    }catch(e){console.error('Decrypt failed',e)}
   }
 }
 
