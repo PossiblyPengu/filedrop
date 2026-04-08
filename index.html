@@ -152,10 +152,29 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 @media(min-width:800px){.camera-btn{display:none}}
 .hidden{display:none!important}
 .mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
-@media(max-width:400px){
+#join-code-input{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1rem;color:var(--text);font-family:var(--mono);font-size:clamp(1.6rem,8vw,2.2rem);letter-spacing:.45em;text-transform:uppercase;text-align:center;outline:none;transition:all .2s;display:block;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
+#join-code-input:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
+#join-code-input::placeholder{letter-spacing:.3em;color:var(--border2)}
+#join-btn{width:100%}
+@media(max-width:540px){
+  .header{margin:1rem 0 1.5rem}
+  .card{padding:1.25rem 1rem}
   .mode-grid{grid-template-columns:1fr}
-  .mode-btn{min-height:80px;flex-direction:row;align-items:center;gap:1rem;padding:1rem 1.25rem;justify-content:flex-start}
+  .mode-btn{min-height:76px;flex-direction:row;align-items:center;gap:1rem;padding:1rem 1.25rem;justify-content:flex-start}
   .mode-btn .icon{font-size:1.5rem;margin-bottom:0}
+  .share-grid{grid-template-columns:1fr}
+  .qr-wrap{order:-1;display:flex;flex-direction:column;align-items:center;padding:.5rem}
+  .qr-inner img,.qr-inner canvas{width:110px!important;height:110px!important}
+  .room-box{padding:1rem .875rem}
+  .room-code{font-size:clamp(2rem,11vw,2.8rem)}
+  .divider{margin:.75rem 0}
+  .btn{width:100%}
+  .copy-row{width:100%;display:flex;gap:.5rem}
+  .copy-btn,.share-btn{flex:1}
+  .prog-item{margin-bottom:.5rem}
+  .footer{font-size:9px;padding:0 .5rem;text-align:center}
+  .speed-info{font-size:10px}
+  #app{padding-top:calc(1.25rem + var(--safe-top))}
 }
 </style>
 </head>
@@ -397,7 +416,7 @@ function createRoom(){
       else setStatus('Waiting for password\u2026');
     });
     conn.on('data',async d=>{
-      if(d instanceof ArrayBuffer){await handleChunk(d);return;}
+      if(d instanceof ArrayBuffer||ArrayBuffer.isView(d)){await handleChunk(d instanceof ArrayBuffer?d:d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));return;}
       if(d.type==='pin'){
         if(d.pin===roomPin){conn.send({type:'pin-ok'});onConnected();}
         else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026');}
@@ -431,7 +450,7 @@ function doConnect(code){
   conn=peer.connect(code,{reliable:true});
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
-    if(d instanceof ArrayBuffer){await handleChunk(d);return;}
+    if(d instanceof ArrayBuffer||ArrayBuffer.isView(d)){await handleChunk(d instanceof ArrayBuffer?d:d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));return;}
     if(d.type==='key'){
       encryptionEnabled=d.encrypted!==false;
       cryptoKey=encryptionEnabled&&d.key?await importKey(d.key):null;
