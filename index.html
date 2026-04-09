@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#08090c">
 <meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://0.peerjs.com">
+<link rel="dns-prefetch" href="https://0.peerjs.com">
 <meta name="description" content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="FileDrop">
@@ -23,9 +25,6 @@
 <!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
 <style>@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('Menlo'),local('Monaco'),local('Consolas'),local('Courier New');font-weight:400 700}@font-face{font-family:'Syne';src:local('Syne'),local('Inter'),local('Segoe UI'),local('Roboto'),local('Helvetica'),local('Arial');font-weight:700 800}</style>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com; media-src 'self' blob:; img-src 'self' blob: data:; worker-src 'self' blob:;">
-<script src="lib/peerjs.min.js"></script>
-<script src="lib/qrcode.min.js"></script>
-<script src="lib/html5-qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 button,a[href],[role=button]{touch-action:manipulation;-webkit-touch-callout:none}
@@ -70,7 +69,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch}
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
 .share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
-.share-grid input[type=text]{padding:.75rem .5rem;font-size:max(16px,1.4rem)}
 .room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .room-code{font-size:clamp(1.8rem,8vw,2.6rem);font-weight:700;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.15);font-family:var(--mono);line-height:1;animation:codeGlow 2s ease-in-out infinite alternate}
 @keyframes codeGlow{from{text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.1)}to{text-shadow:0 0 30px var(--accent-glow),0 0 60px rgba(0,217,255,.2)}}
@@ -90,6 +88,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 .status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+.fingerprint{display:flex;align-items:center;gap:.4rem;font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:.2rem}
+.fp-value{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.18em;font-weight:700}
+.fp-hint{font-size:9px;opacity:.7}
 .dot.init{animation:pulse 1.2s infinite}
 .dot.waiting{background:var(--accent);animation:pulse 1.2s infinite}
 .dot.connected{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:none}
@@ -123,6 +124,21 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:var(--accent);box-shadow:0 0 6px var(--accent-glow);transition:width .1s linear;border-radius:2px}
 .prog-fill.done{background:var(--green);box-shadow:0 0 6px rgba(0,255,136,.3)}
+.xfer-section{margin-top:.75rem}
+.xfer-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.4rem}
+.xfer-speed{font-size:11px;color:var(--muted)}
+.xfer-speed span{color:var(--accent)}
+.xfer-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative}
+.xfer-track-recv{transform:scaleX(-1)}
+.xfer-fill{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:3px;transition:width .15s linear;overflow:hidden}
+.xfer-fill-send{background:var(--green);box-shadow:0 0 6px var(--green-glow)}
+.xfer-fill-recv{background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
+.xfer-fill.active::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:xferSweep 1.8s ease-in-out infinite}
+@keyframes xferSweep{from{left:-40%}to{left:140%}}
+.xfer-file-list{margin-top:.4rem;display:flex;flex-direction:column;gap:.15rem}
+.xfer-file-item{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);gap:.5rem}
+.xfer-file-item .prog-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xfer-file-item .prog-pct{color:var(--accent);flex-shrink:0}
 .btn{width:100%;padding:1rem 1.5rem;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);min-height:52px;user-select:none;position:relative;overflow:hidden}
 .btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:none}
 .btn:active:not(:disabled){transform:scale(.98)}
@@ -151,8 +167,6 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
 .drag-text{font-family:var(--sans);font-size:1.5rem;color:#fff;font-weight:700}
 .speed-info{display:flex;gap:1rem;align-items:center;font-size:11px;color:var(--muted);margin-top:.5rem}
 .speed-info span{color:var(--accent)}
-input[type=password]{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;color:var(--text);font-family:var(--mono);font-size:14px;letter-spacing:.1em;outline:none;transition:all .2s;text-align:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
-input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
 .pin-wrap{display:flex;gap:.5rem;justify-content:center;margin:.5rem 0}
 .pin-wrap input{width:3.5rem;height:3.5rem;padding:0;text-align:center;font-size:1.5rem;font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);-webkit-appearance:none;-moz-appearance:none;appearance:none}
 .pin-wrap input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 15px var(--accent-glow)}
@@ -208,14 +222,12 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .shake{animation:shake .5s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-5px)}20%,40%,60%,80%{transform:translateX(5px)}}
 .progress-fill-anim{transition:width .3s cubic-bezier(.4,0,.2,1)}
-.btn-press:active{transform:scale(.95)}
 .toast{position:fixed;top:calc(1rem + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--red-dim);border:1px solid var(--red);color:var(--text);padding:1rem 1.5rem;border-radius:10px;font-size:13px;z-index:300;opacity:0;transition:all .3s ease;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
 #join-code-input{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1rem;color:var(--text);font-family:var(--mono);font-size:clamp(1.6rem,8vw,2.2rem);letter-spacing:.45em;text-transform:uppercase;text-align:center;outline:none;transition:all .2s;display:block;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
 #join-code-input:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
 #join-code-input::placeholder{letter-spacing:.3em;color:var(--border2)}
-#join-btn{width:100%}
 @media(max-width:540px){
   .header{margin:1rem 0 1.5rem}
   .card{padding:1.25rem 1rem}
@@ -340,6 +352,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
       <div class="dot init" id="room-dot"></div>
       <span id="room-status-text">Initializing&hellip;</span>
     </div>
+    <div class="fingerprint hidden" id="room-fingerprint"></div>
 
     <div class="divider"></div>
     <span class="label">Send Files</span>
@@ -352,10 +365,15 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
     </div>
     <div class="file-list" id="room-send-list"></div>
     <div class="file-list" id="room-sent-list"></div>
-    <div id="room-send-progress" class="progress-section hidden">
-      <span class="label">Sending</span>
-      <div class="speed-info"><span id="speed-val">0 B/s</span> &middot; <span id="eta-val">calculating&hellip;</span></div>
-      <div id="room-progress-items"></div>
+    <div id="room-send-progress" class="xfer-section hidden">
+      <div class="xfer-header">
+        <span class="label" style="margin-bottom:0">Sending</span>
+        <span class="xfer-speed"><span id="speed-val">0 B/s</span> &middot; <span id="eta-val">calculating&hellip;</span></span>
+      </div>
+      <div class="xfer-track">
+        <div class="xfer-fill xfer-fill-send" id="send-overall-fill"></div>
+      </div>
+      <div id="room-progress-items" class="xfer-file-list"></div>
     </div>
     <div id="room-transfer-controls" class="transfer-controls hidden">
       <button class="btn btn-secondary" id="pause-btn" onclick="togglePause()">Pause</button>
@@ -367,9 +385,15 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
     <div class="divider"></div>
     <span class="label">Received Files</span>
-    <div id="room-recv-progress" class="progress-section hidden">
-      <div class="speed-info"><span id="recv-speed-val">0 B/s</span> &middot; <span id="recv-eta-val">calculating&hellip;</span></div>
-      <div id="room-recv-items"></div>
+    <div id="room-recv-progress" class="xfer-section hidden">
+      <div class="xfer-header">
+        <span class="label" style="margin-bottom:0">Receiving</span>
+        <span class="xfer-speed"><span id="recv-speed-val">0 B/s</span> &middot; <span id="recv-eta-val">calculating&hellip;</span></span>
+      </div>
+      <div class="xfer-track xfer-track-recv">
+        <div class="xfer-fill xfer-fill-recv" id="recv-overall-fill"></div>
+      </div>
+      <div id="room-recv-items" class="xfer-file-list"></div>
     </div>
     <div class="file-list" id="room-recv-list">
       <div class="empty">Waiting for files&hellip;</div>
@@ -401,6 +425,8 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 </div>
 <button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
 <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
+<script src="lib/peerjs.min.js"></script>
+<script src="lib/qrcode.min.js"></script>
 <script>
 const CHUNK=1048576;
 const MAX_BUFFER=16*1024*1024;
@@ -418,13 +444,13 @@ const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
 let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
 let recvQueue=[],recvProcessing=false;
-let wakeLock=null;
+let wakeLock=null,hostPubKeyArr=null;
 
 async function requestWakeLock(){if(!('wakeLock' in navigator))return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
 function releaseWakeLock(){if(wakeLock){try{wakeLock.release();}catch(e){}wakeLock=null;}}
 function buzz(p){if('vibrate' in navigator)navigator.vibrate(p);}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&conn&&conn.open)requestWakeLock();});
-async function pasteCode(){try{const t=await navigator.clipboard.readText();const code=extractRoomCode(t)||(t.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));if(code&&code.length===6){document.getElementById('join-code-input').value=code;}}catch(e){}}
+async function pasteCode(){try{const t=await navigator.clipboard.readText();const code=extractRoomCode(t)||(t.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));if(code&&code.length===6){document.getElementById('join-code-input').value=code;}else{showToast('No room code found in clipboard');}}catch(e){showToast('Clipboard access denied');}}
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,n=>c[n%c.length]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
 function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`${m}:${Math.floor(s%60).toString().padStart(2,'0')} remaining`}
@@ -437,6 +463,9 @@ function hide(id){const el=document.getElementById(id);el.classList.add('hidden'
 function setDot(s){document.getElementById('room-dot').className='dot '+s}
 function setStatus(t){document.getElementById('room-status-text').textContent=t}
 
+async function computeFingerprint(hostPub,guestPub){const combined=new Uint8Array([...hostPub,...guestPub]);const hash=await crypto.subtle.digest('SHA-256',combined);const hex=Array.from(new Uint8Array(hash)).slice(0,4).map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();return hex.slice(0,4)+' '+hex.slice(4);}
+function showFingerprint(fp){const el=document.getElementById('room-fingerprint');if(!el)return;el.innerHTML=`🔑 <span class="fp-value">${fp}</span><span class="fp-hint">&#8212; verify with peer</span>`;el.classList.remove('hidden');}
+function sanitizeMime(mime){if(!mime||typeof mime!=='string')return'application/octet-stream';if(/^image\/(jpeg|png|gif|webp|svg\+xml|heic|heif|bmp|avif)$/i.test(mime))return mime;if(/^video\/(mp4|webm|ogg|quicktime|x-msvideo|x-matroska|m4v|3gpp)$/i.test(mime))return mime;if(/^audio\/(mpeg|wav|ogg|aac|flac|mp4|x-m4a|webm)$/i.test(mime))return mime;if(/^application\/(pdf|zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|gzip|json|octet-stream)$/i.test(mime))return mime;if(/^text\/(plain|markdown|csv)$/i.test(mime))return mime;return'application/octet-stream';}
 async function genECDHKeyPair(){return await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey']);}
 async function exportECDHPubKey(kp){const buf=await crypto.subtle.exportKey('raw',kp.publicKey);return Array.from(new Uint8Array(buf));}
 async function deriveSharedAESKey(priv,remotePubArr){const pub=await crypto.subtle.importKey('raw',new Uint8Array(remotePubArr),{name:'ECDH',namedCurve:'P-256'},false,[]);return await crypto.subtle.deriveKey({name:'ECDH',public:pub},priv,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
@@ -494,10 +523,12 @@ function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').sl
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;releaseWakeLock();
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;hostPubKeyArr=null;releaseWakeLock();
+  const fpEl=document.getElementById('room-fingerprint');if(fpEl){fpEl.classList.add('hidden');fpEl.innerHTML='';}
   receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
-  selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
+  selectedFiles=[];sentFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
+  transferCancelled=false;transferPaused=false;currentSendIdx=0;currentSendProgress=0;
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
   recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
   currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
@@ -510,6 +541,8 @@ function goHome(){
   document.getElementById('room-send-progress').classList.add('hidden');
   document.getElementById('room-recv-progress').classList.add('hidden');
   const sb=document.getElementById('room-send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';sb.classList.remove('success-pulse');
+  const sf2=document.getElementById('send-overall-fill');if(sf2){sf2.style.width='0%';sf2.classList.remove('active');}
+  const rf2=document.getElementById('recv-overall-fill');if(rf2){rf2.style.width='0%';rf2.classList.remove('active');}
   document.getElementById('join-code-input').value='';
   document.getElementById('join-btn').disabled=false;
   document.getElementById('room-code-display').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
@@ -564,7 +597,8 @@ function createRoom(){
       try{
         localECDHKeyPair=await genECDHKeyPair();
         if(!conn||!conn.open)return;
-        conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin});
+        hostPubKeyArr=await exportECDHPubKey(localECDHKeyPair);
+        conn.send({type:'ecdh-init',pubKey:hostPubKeyArr,hasPin:!!roomPin});
         setStatus('Exchanging keys\u2026');
       }catch(e){
         console.error('ECDH init failed',e);
@@ -576,6 +610,7 @@ function createRoom(){
         if(d.pubKey&&localECDHKeyPair){
           try{
             cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);
+            if(hostPubKeyArr)computeFingerprint(hostPubKeyArr,d.pubKey).then(showFingerprint);
           }catch(e){
             console.error('Host ECDH derive failed',e);
           }
@@ -621,6 +656,7 @@ function createRoom(){
       conn=null;
       cryptoKey=null;
       localECDHKeyPair=null;
+      releaseWakeLock();
       updateSendBtn();
     });
     conn.on('error',()=>{
@@ -654,7 +690,7 @@ function doConnect(code){
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
       if(!d.pubKey){setStatus('Host does not support encryption');if(conn)try{conn.close();}catch(_){}return;}
-      try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}
+      try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});computeFingerprint(d.pubKey,pubKeyArr).then(showFingerprint);localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}
       if(!cryptoKey){setStatus('Encryption setup failed — try reconnecting');return;}
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
@@ -663,7 +699,7 @@ function doConnect(code){
     else if(d.type==='room-full'){setDot('error');setStatus('Room is full \u2014 try a different room');document.getElementById('join-btn').disabled=false;}
     else await handleIncoming(d);
   });
-  conn.on('close',()=>{cryptoKey=null;localECDHKeyPair=null;scheduleReconnect();});
+  conn.on('close',()=>{cryptoKey=null;localECDHKeyPair=null;releaseWakeLock();scheduleReconnect();});
   conn.on('error',()=>{scheduleReconnect();});
 }
 
@@ -679,6 +715,7 @@ function scheduleReconnect(){
 async function resumeSend(){
   if(!conn||pendingSendIdx>=selectedFiles.length)return;
   if(!cryptoKey)return;
+  transferCancelled=false;transferPaused=false;
   show('room-send-progress');
   const btn=document.getElementById('room-send-btn');btn.disabled=true;
   sendStartTime=Date.now();sendBytesSent=0;
@@ -706,6 +743,9 @@ function updateSpeed(){
   const speed=sendBytesSent/elapsed;const remaining=(sendTotalBytes-sendBytesSent)/Math.max(speed,1);
   document.getElementById('speed-val').textContent=fmtSize(speed)+'/s';
   document.getElementById('eta-val').textContent=fmtETA(remaining);
+  const pct=sendTotalBytes>0?Math.min(100,Math.round(sendBytesSent/sendTotalBytes*100)):0;
+  const fill=document.getElementById('send-overall-fill');
+  if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
 }
 
 async function sendFiles(){
@@ -721,7 +761,7 @@ async function sendFiles(){
   sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
   const interval=setInterval(updateSpeed,500);
   const wrap=document.getElementById('room-progress-items');wrap.innerHTML='';
-  selectedFiles.forEach((f,i)=>{const safeName=escapeHtml(f.name);wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
+  selectedFiles.forEach((f,i)=>{const safeName=escapeHtml(f.name);wrap.innerHTML+=`<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div>`});
   pendingSendIdx=0;
   for(let i=0;i<selectedFiles.length;i++){
     if(transferCancelled)break;
@@ -734,9 +774,11 @@ async function sendFiles(){
   if(transferCancelled){
     btn.textContent='Cancelled';btn.style.opacity='.6';
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='cancelled';
+    const sfc=document.getElementById('send-overall-fill');if(sfc){sfc.style.width='0%';sfc.classList.remove('active');}
   }else{
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
     btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');buzz([100,50,100]);
+    const sfd=document.getElementById('send-overall-fill');if(sfd){sfd.style.width='100%';sfd.classList.remove('active');setTimeout(()=>{sfd.style.width='0%';},1500);}
   }
 }
 
@@ -798,12 +840,12 @@ function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);co
 
 async function handleIncoming(d){
   if(d.type==='meta'){
-    if(!recvStartTime){recvStartTime=Date.now();recvTotalBytes+=d.size;}
+    recvTotalBytes+=d.size;if(!recvStartTime)recvStartTime=Date.now();
     if(!recvSpeedInterval)recvSpeedInterval=setInterval(updateRecvSpeed,500);
     recvMeta[d.name]={...d,received:0,lastPct:0,bytesReceived:0};recvBuffers[d.name]=new Array(d.totalChunks);
     show('room-recv-progress');
     const k=safeKey(d.name);
-    const safeRecvName=escapeHtml(d.name);document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
+    const safeRecvName=escapeHtml(d.name);document.getElementById('room-recv-items').innerHTML+=`<div class="xfer-file-item"><span class="prog-name" title="${safeRecvName}">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
   }else if(d.type==='b'&&!pinPending){
     const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
@@ -833,6 +875,9 @@ function updateRecvSpeed(){
   const speedEl=document.getElementById('recv-speed-val');const etaEl=document.getElementById('recv-eta-val');
   if(speedEl)speedEl.textContent=fmtSize(speed)+'/s';
   if(etaEl)etaEl.textContent=fmtETA(remaining);
+  const pct=recvTotalBytes>0?Math.min(100,Math.round(recvBytesReceived/recvTotalBytes*100)):0;
+  const fill=document.getElementById('recv-overall-fill');
+  if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
 }
 
 async function processRecvQueue(){
@@ -841,17 +886,18 @@ async function processRecvQueue(){
     const batch=recvQueue.splice(0,RECV_BATCH_SIZE);
     const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);
     if(!meta){recvProcessing=false;return;}
+    let stored=0;
     await Promise.all(batch.map(async item=>{
       try{
-        let data;
-        data=await decryptChunk(item.buf,cryptoKey);
+        const data=await decryptChunk(item.buf,cryptoKey);
         if(item.i<0||item.i>=meta.totalChunks)return;
         recvBuffers[meta.name][item.i]=data;
         meta.bytesReceived+=item.byteLength||0;
         recvBytesReceived+=item.byteLength||0;
+        stored++;
       }catch(e){console.error('Decrypt error',e);}
     }));
-    meta.received+=batch.length;
+    meta.received+=stored;
     const pct=Math.round(meta.received/meta.totalChunks*100);
     if(pct!==meta.lastPct){
       meta.lastPct=pct;
@@ -872,7 +918,7 @@ async function processRecvQueue(){
 }
 
 function assembleFile(name){
-  const meta=recvMeta[name];const mime=meta.mime||'application/octet-stream';
+  const meta=recvMeta[name];const mime=sanitizeMime(meta.mime);
   const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);receivedBlobURLs.push(url);
   const div=document.createElement('div');div.className='recv-item recv-item-col recv-item-enter';
   const safeRecvName2=escapeHtml(name);
@@ -890,12 +936,16 @@ function assembleFile(name){
     if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
     document.getElementById('recv-speed-val').textContent='0 B/s';
     document.getElementById('recv-eta-val').textContent='done';
+    const rfd=document.getElementById('recv-overall-fill');if(rfd){rfd.style.width='100%';rfd.classList.remove('active');setTimeout(()=>{rfd.style.width='0%';},1500);}
   }
 }
 
 function openCamera(){document.getElementById('camera-input').click()}
 
+let _qrLibPromise=null;
+async function loadQRLib(){if(window.Html5Qrcode)return;if(!_qrLibPromise)_qrLibPromise=new Promise((res,rej)=>{const s=document.createElement('script');s.src='lib/html5-qrcode.min.js';s.onload=res;s.onerror=e=>{_qrLibPromise=null;rej(e);};document.head.appendChild(s);});return _qrLibPromise;}
 async function openQRScanner(){
+  await loadQRLib();
   const modal=document.getElementById('qr-scanner-modal');
   const hint=document.getElementById('scan-hint');
   const retryBtn=document.getElementById('qr-retry-btn');
@@ -962,6 +1012,7 @@ async function closeQRScanner(){
 
 async function scanQRFromFile(e){
   const file=e.target.files[0];if(!file)return;e.target.value='';
+  await loadQRLib();
   const hint=document.getElementById('scan-hint');
   if(hint)hint.textContent='Scanning image\u2026';
   if(qrScanner){try{await qrScanner.stop();}catch(_){}try{qrScanner.clear();}catch(_){}qrScanner=null;}
