@@ -7,10 +7,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#08090c">
 <title>FileDrop</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
+<style>@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('Menlo'),local('Monaco'),local('Consolas'),local('Courier New');font-weight:400 700}@font-face{font-family:'Syne';src:local('Syne'),local('Inter'),local('Segoe UI'),local('Roboto'),local('Helvetica'),local('Arial');font-weight:700 800}</style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com; media-src 'self' blob:; img-src 'self' blob: data:; worker-src 'self' blob:;">
+<script src="lib/peerjs.min.js"></script>
+<script src="lib/qrcode.min.js"></script>
+<script src="lib/html5-qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -408,6 +410,7 @@ function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
 function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
+function escapeHtml(text){const div=document.createElement('div');div.textContent=text;return div.innerHTML;}
 function roomURL(code){const u=new URL(window.location.href);u.searchParams.set('room',code);return u.toString()}
 function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
 function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
@@ -612,7 +615,7 @@ function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
 function deleteSentFile(i){const f=sentFiles[i];if(!f)return;sentFiles.splice(i,1);renderSendList();if(conn&&conn.open)conn.send({type:'del',name:f.name,size:f.size});}
-function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`).join('')}
+function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const safeName=escapeHtml(f.name);const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>{const safeName=escapeHtml(f.name);return`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`}).join('')}
 function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
@@ -636,7 +639,7 @@ async function sendFiles(){
   sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
   const interval=setInterval(updateSpeed,500);
   const wrap=document.getElementById('room-progress-items');wrap.innerHTML='';
-  selectedFiles.forEach((f,i)=>{wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${f.name}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
+  selectedFiles.forEach((f,i)=>{const safeName=escapeHtml(f.name);wrap.innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div><div class="prog-bar"><div class="prog-fill" id="fill${i}" style="width:0%"></div></div></div>`});
   pendingSendIdx=0;
   for(let i=0;i<selectedFiles.length;i++){
     if(transferCancelled)break;
@@ -719,7 +722,7 @@ async function handleIncoming(d){
     recvMeta[d.name]={...d,received:0,lastPct:0,bytesReceived:0};recvBuffers[d.name]=new Array(d.totalChunks);
     show('room-recv-progress');
     const k=safeKey(d.name);
-    document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
+    const safeRecvName=escapeHtml(d.name);document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
   }else if(d.type==='b'&&!pinPending){
     const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
@@ -792,15 +795,17 @@ function assembleFile(name){
   const meta=recvMeta[name];const mime=meta.mime||'application/octet-stream';
   const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);
   const div=document.createElement('div');div.className='recv-item recv-item-col recv-item-enter';
+  const safeRecvName2=escapeHtml(name);
   let preview='';
-  if(mime.startsWith('image/'))preview=`<img src="${url}" class="recv-preview" alt="${name}">`;
+  if(mime.startsWith('image/'))preview=`<img src="${url}" class="recv-preview" alt="${safeRecvName2}">`;
   else if(mime.startsWith('video/'))preview=`<video src="${url}" class="recv-preview" controls playsinline></video>`;
   else if(mime.startsWith('audio/'))preview=`<audio src="${url}" class="recv-audio" controls></audio>`;
-  div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${name}" data-size="${meta.size}">${name}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${name}">Save</a></div>`;
+  div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${safeRecvName2}" data-size="${meta.size}">${safeRecvName2}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${safeRecvName2}">Save</a></div>`;
   document.getElementById('room-recv-list').appendChild(div);
   if(!mime.startsWith('image/')&&!mime.startsWith('video/')&&!mime.startsWith('audio/')){
-    const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    const a=document.createElement('a');a.href=url;a.download=safeRecvName2;document.body.appendChild(a);a.click();document.body.removeChild(a);
   }
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
   delete recvBuffers[name];delete recvMeta[name];
   const remaining=Object.values(recvMeta).filter(m=>m.received<m.totalChunks).length;
   if(remaining===0){
@@ -914,7 +919,7 @@ window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])
 
 window.addEventListener('load',()=>{
   const room=new URLSearchParams(window.location.search).get('room');
-  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase();setTimeout(()=>joinRoom(room.toUpperCase()),300);}
+  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
 });
 
 document.querySelectorAll('.mode-btn').forEach(btn=>{
