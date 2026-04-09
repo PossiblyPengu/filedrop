@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#08090c">
+<meta name="referrer" content="no-referrer">
 <title>FileDrop</title>
 <!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
 <style>@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('Menlo'),local('Monaco'),local('Consolas'),local('Courier New');font-weight:400 700}@font-face{font-family:'Syne';src:local('Syne'),local('Inter'),local('Segoe UI'),local('Roboto'),local('Helvetica'),local('Arial');font-weight:700 800}</style>
@@ -304,7 +305,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
           <span class="toggle-label-sub">AES-256-GCM</span>
         </div>
         <label class="toggle-switch">
-          <input type="checkbox" id="enc-toggle" checked>
+          <input type="checkbox" id="enc-toggle" checked onchange="if(!this.checked)showToast('\u26a0\ufe0f Encryption disabled \u2014 files will be sent in plaintext')">
           <span class="toggle-track"></span>
         </label>
       </div>
@@ -394,32 +395,35 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 const CHUNK=1048576;
 const MAX_BUFFER=16*1024*1024;
 const CHUNKS_PER_BATCH=4;
-const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}};
+const RECV_BATCH_SIZE=8;
+const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]}};
 let peer=null,conn=null,isHost=false;
 let selectedFiles=[],sentFiles=[],recvBuffers={},recvMeta={};
 let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
+let localECDHKeyPair=null,pinFailCount=0,receivedBlobURLs=[],sendThumbURLs=new Map();
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
 let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
-let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
+let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,toastTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
 let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
-let recvQueue=[],recvProcessing=false,recvBatchSize=8;
+let recvQueue=[],recvProcessing=false;
 
-function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
+function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,n=>c[n%c.length]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
+function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`${m}:${Math.floor(s%60).toString().padStart(2,'0')} remaining`}
 function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
 function escapeHtml(text){const div=document.createElement('div');div.textContent=text;return div.innerHTML;}
-function roomURL(code){const u=new URL(window.location.href);u.searchParams.set('room',code);return u.toString()}
+function roomURL(code){const u=new URL(window.location.href);u.search='';u.hash='room='+code;return u.toString()}
 function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
 function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
 function setDot(s){document.getElementById('room-dot').className='dot '+s}
 function setStatus(t){document.getElementById('room-status-text').textContent=t}
 
-async function genCryptoKey(){return await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt'])}
-async function exportKey(key){const buf=await crypto.subtle.exportKey('raw',key);return Array.from(new Uint8Array(buf))}
-async function importKey(arr){return await crypto.subtle.importKey('raw',new Uint8Array(arr),{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function genECDHKeyPair(){return await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey']);}
+async function exportECDHPubKey(kp){const buf=await crypto.subtle.exportKey('raw',kp.publicKey);return Array.from(new Uint8Array(buf));}
+async function deriveSharedAESKey(priv,remotePubArr){const pub=await crypto.subtle.importKey('raw',new Uint8Array(remotePubArr),{name:'ECDH',namedCurve:'P-256'},false,[]);return await crypto.subtle.deriveKey({name:'ECDH',public:pub},priv,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
 async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);const out=new Uint8Array(12+enc.byteLength);out.set(iv,0);out.set(new Uint8Array(enc),12);return out.buffer;}
 async function decryptChunk(buf,key){return await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(buf,0,12)},key,new Uint8Array(buf,12));}
 async function waitForBuffer(){const dc=conn&&(conn.dataChannel||conn._dc);if(!dc)return;while(dc.bufferedAmount>MAX_BUFFER)await new Promise(r=>setTimeout(r,1));}
@@ -452,13 +456,13 @@ function showToast(msg){
   const toast=document.getElementById('toast');
   toast.textContent=msg;
   toast.classList.add('show');
-  setTimeout(()=>toast.classList.remove('show'),4000);
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),4000);
 }
 
 function copyRoomCode(){
   const code=document.getElementById('room-code-display').textContent;
   const btn=document.getElementById('room-copy-btn');const orig=btn.textContent;
-  navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>{const ta=document.createElement('textarea');ta.value=code;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)});
+  navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>showToast('Copy failed — share the code manually'));
 }
 function shareRoomLink(){
   const code=document.getElementById('room-code-display').textContent;
@@ -474,7 +478,9 @@ function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').sl
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;localECDHKeyPair=null;pinFailCount=0;
+  receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
+  sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
   selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
   recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
@@ -532,18 +538,19 @@ function createRoom(){
     conn.on('open',async()=>{
       roomPin=getHostPin();
       encryptionEnabled=document.getElementById('enc-toggle').checked;
-      if(encryptionEnabled){cryptoKey=await genCryptoKey();conn.send({type:'key',key:await exportKey(cryptoKey),hasPin:!!roomPin,encrypted:true});}
-      else{cryptoKey=null;conn.send({type:'key',key:null,hasPin:!!roomPin,encrypted:false});}
-      if(!roomPin)onConnected();
-      else setStatus('Waiting for password\u2026');
+      if(encryptionEnabled){localECDHKeyPair=await genECDHKeyPair();conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});setStatus('Exchanging keys\u2026');}
+      else{localECDHKeyPair=null;cryptoKey=null;conn.send({type:'ecdh-init',pubKey:null,hasPin:!!roomPin,encrypted:false});if(!roomPin)onConnected();else setStatus('Waiting for password\u2026');}
     });
     conn.on('data',async d=>{
-      if(d.type==='pin'){
-        if(d.pin===roomPin){conn.send({type:'pin-ok'});onConnected();}
-        else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026');}
+      if(d.type==='ecdh-reply'){
+        if(encryptionEnabled&&d.pubKey&&localECDHKeyPair){cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);localECDHKeyPair=null;}
+        if(!roomPin)onConnected();else setStatus('Waiting for password\u2026');
+      } else if(d.type==='pin'){
+        if(d.pin===roomPin){pinFailCount=0;conn.send({type:'pin-ok'});onConnected();}
+        else{pinFailCount++;if(pinFailCount>=3){conn.send({type:'pin-fail'});setStatus('Too many wrong passwords \u2014 disconnecting');setTimeout(()=>{if(conn){try{conn.close();}catch(e){}}conn=null;pinFailCount=0;setDot('waiting');setStatus('Waiting for peer\u2026');},500);}else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026 ('+(3-pinFailCount)+' left)');}}
       } else await handleIncoming(d);
     });
-    conn.on('close',()=>{setDot('waiting');setStatus('Peer disconnected');conn=null;cryptoKey=null;updateSendBtn()});
+    conn.on('close',()=>{setDot('waiting');setStatus('Peer disconnected');conn=null;cryptoKey=null;localECDHKeyPair=null;updateSendBtn()});
     conn.on('error',()=>{setDot('error');setStatus('Connection error')});
   });
   peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
@@ -571,17 +578,18 @@ function doConnect(code){
   conn=peer.connect(code,{reliable:true});
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
-    if(d.type==='key'){
+    if(d.type==='ecdh-init'){
       encryptionEnabled=d.encrypted!==false;
-      cryptoKey=encryptionEnabled&&d.key?await importKey(d.key):null;
+      if(encryptionEnabled&&d.pubKey){localECDHKeyPair=await genECDHKeyPair();cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);conn.send({type:'ecdh-reply',pubKey:await exportECDHPubKey(localECDHKeyPair)});localECDHKeyPair=null;}
+      else{cryptoKey=null;conn.send({type:'ecdh-reply',pubKey:null});}
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
     } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
     else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
-    else if(d.type==='room-full'){setDot('error');setStatus('Room is full — try a different room');document.getElementById('join-btn').disabled=false;}
+    else if(d.type==='room-full'){setDot('error');setStatus('Room is full \u2014 try a different room');document.getElementById('join-btn').disabled=false;}
     else await handleIncoming(d);
   });
-  conn.on('close',()=>{cryptoKey=null;scheduleReconnect();});
+  conn.on('close',()=>{cryptoKey=null;localECDHKeyPair=null;scheduleReconnect();});
   conn.on('error',()=>{scheduleReconnect();});
 }
 
@@ -613,17 +621,17 @@ function onDragLeave(){document.getElementById('dropzone').classList.remove('dra
 function onDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('dragover');addFiles([...e.dataTransfer.files])}
 function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
-function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
+function removeFile(i){const f=selectedFiles[i];const k=f.name+f.size;if(sendThumbURLs.has(k)){URL.revokeObjectURL(sendThumbURLs.get(k));sendThumbURLs.delete(k);}selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
 function deleteSentFile(i){const f=sentFiles[i];if(!f)return;sentFiles.splice(i,1);renderSendList();if(conn&&conn.open)conn.send({type:'del',name:f.name,size:f.size});}
-function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const safeName=escapeHtml(f.name);const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>{const safeName=escapeHtml(f.name);return`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`}).join('')}
+function getThumbURL(f){const k=f.name+f.size;if(!sendThumbURLs.has(k))sendThumbURLs.set(k,URL.createObjectURL(f));return sendThumbURLs.get(k);}
+function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const safeName=escapeHtml(f.name);const icon=isImg?`<img src="${getThumbURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>{const safeName=escapeHtml(f.name);return`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`}).join('')}
 function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
   const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;
   const speed=sendBytesSent/elapsed;const remaining=(sendTotalBytes-sendBytesSent)/Math.max(speed,1);
   document.getElementById('speed-val').textContent=fmtSize(speed)+'/s';
-  const m=Math.floor(remaining/60),s=Math.floor(remaining%60);
-  document.getElementById('eta-val').textContent=remaining>0?`${m}:${s.toString().padStart(2,'0')} remaining`:'finishing\u2026';
+  document.getElementById('eta-val').textContent=fmtETA(remaining);
 }
 
 async function sendFiles(){
@@ -751,14 +759,13 @@ function updateRecvSpeed(){
   const speed=recvBytesReceived/elapsed;const remaining=(recvTotalBytes-recvBytesReceived)/Math.max(speed,1);
   const speedEl=document.getElementById('recv-speed-val');const etaEl=document.getElementById('recv-eta-val');
   if(speedEl)speedEl.textContent=fmtSize(speed)+'/s';
-  const m=Math.floor(remaining/60),s=Math.floor(remaining%60);
-  if(etaEl)etaEl.textContent=remaining>0?`${m}:${s.toString().padStart(2,'0')} remaining`:'finishing...';
+  if(etaEl)etaEl.textContent=fmtETA(remaining);
 }
 
 async function processRecvQueue(){
   recvProcessing=true;
   while(recvQueue.length>0){
-    const batch=recvQueue.splice(0,recvBatchSize);
+    const batch=recvQueue.splice(0,RECV_BATCH_SIZE);
     const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);
     if(!meta){recvProcessing=false;return;}
     await Promise.all(batch.map(async item=>{
@@ -766,6 +773,7 @@ async function processRecvQueue(){
         let data;
         if(encryptionEnabled&&cryptoKey){data=await decryptChunk(item.buf,cryptoKey);}
         else{data=item.buf;}
+        if(item.i<0||item.i>=meta.totalChunks)return;
         recvBuffers[meta.name][item.i]=data;
         meta.bytesReceived+=item.byteLength||0;
         recvBytesReceived+=item.byteLength||0;
@@ -786,14 +794,14 @@ async function processRecvQueue(){
       if(fill)fill.classList.add('done');
       assembleFile(meta.name);
     }
-    if(batch.length>=recvBatchSize)await yieldControl();
+    if(batch.length>=RECV_BATCH_SIZE)await yieldControl();
   }
   recvProcessing=false;
 }
 
 function assembleFile(name){
   const meta=recvMeta[name];const mime=meta.mime||'application/octet-stream';
-  const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);
+  const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);receivedBlobURLs.push(url);
   const div=document.createElement('div');div.className='recv-item recv-item-col recv-item-enter';
   const safeRecvName2=escapeHtml(name);
   let preview='';
@@ -802,10 +810,7 @@ function assembleFile(name){
   else if(mime.startsWith('audio/'))preview=`<audio src="${url}" class="recv-audio" controls></audio>`;
   div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${safeRecvName2}" data-size="${meta.size}">${safeRecvName2}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${safeRecvName2}">Save</a></div>`;
   document.getElementById('room-recv-list').appendChild(div);
-  if(!mime.startsWith('image/')&&!mime.startsWith('video/')&&!mime.startsWith('audio/')){
-    const a=document.createElement('a');a.href=url;a.download=safeRecvName2;document.body.appendChild(a);a.click();document.body.removeChild(a);
-  }
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  setTimeout(()=>{URL.revokeObjectURL(url);const i=receivedBlobURLs.indexOf(url);if(i>-1)receivedBlobURLs.splice(i,1);},60000);
   delete recvBuffers[name];delete recvMeta[name];
   const remaining=Object.values(recvMeta).filter(m=>m.received<m.totalChunks).length;
   if(remaining===0){
@@ -830,6 +835,9 @@ async function openQRScanner(){
 }
 
 async function startQRScanner(hint,retryBtn){
+  const config={fps:10,qrbox:200};
+  const onQRSuccess=text=>{const code=extractRoomCode(text);if(code){closeQRScanner();document.getElementById('join-code-input').value=code;joinRoom(code);}};
+  const onQRError=()=>{};
   try{
     if(qrScanner){
       try{await qrScanner.stop();}catch(e){}
@@ -839,36 +847,13 @@ async function startQRScanner(hint,retryBtn){
     document.getElementById('qr-reader').innerHTML='';
     await new Promise(r=>setTimeout(r,50));
     qrScanner=new Html5Qrcode('qr-reader');
-    const config={fps:10,qrbox:200};
-    const camConfig={facingMode:'environment'};
-    await qrScanner.start(camConfig,config,
-      (decodedText)=>{
-        const code=extractRoomCode(decodedText);
-        if(code){
-          closeQRScanner();
-          document.getElementById('join-code-input').value=code;
-          joinRoom(code);
-        }
-      },
-      (errorMessage)=>{}
-    );
+    await qrScanner.start({facingMode:'environment'},config,onQRSuccess,onQRError);
     if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
     if(retryBtn)retryBtn.classList.add('hidden');
   }catch(err1){
     console.log('Rear camera failed:',err1.name,err1.message);
     try{
-      const config={fps:10,qrbox:200};
-      await qrScanner.start({facingMode:'user'},config,
-        (decodedText)=>{
-          const code=extractRoomCode(decodedText);
-          if(code){
-            closeQRScanner();
-            document.getElementById('join-code-input').value=code;
-            joinRoom(code);
-          }
-        },
-        (errorMessage)=>{}
-      );
+      await qrScanner.start({facingMode:'user'},config,onQRSuccess,onQRError);
       if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
       if(retryBtn)retryBtn.classList.add('hidden');
     }catch(err2){
@@ -918,8 +903,13 @@ window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('d
 window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){addFiles(files);e.preventDefault();}});
 
 window.addEventListener('load',()=>{
-  const room=new URLSearchParams(window.location.search).get('room');
+  const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
   if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
+});
+window.addEventListener('beforeunload',()=>{
+  receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
+  sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
+  if(peer){try{peer.destroy();}catch(e){}}
 });
 
 document.querySelectorAll('.mode-btn').forEach(btn=>{
