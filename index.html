@@ -172,9 +172,13 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 @media(hover:hover){.qr-clickable:hover{box-shadow:0 0 20px var(--accent-glow);transform:scale(1.02)}}
 .qr-modal{width:100%;max-width:320px;background:#fff;padding:20px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:1rem}
 .qr-modal-inner canvas,.qr-modal-inner img{width:280px!important;height:280px!important}
-.qr-scanner-close{position:absolute;top:1rem;right:1rem;background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
+.qr-scanner-close{position:absolute;top:calc(1rem + env(safe-area-inset-top,0px));right:calc(1rem + env(safe-area-inset-right,0px));background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
 .qr-scanner-close:active{background:var(--accent-dim)}
 .qr-retry-btn{margin-top:1rem;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:.6rem 1.2rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer}
+.qr-photo-btn{margin-top:.75rem;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);padding:.6rem 1.4rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .2s}
+.qr-photo-btn:active{background:rgba(0,217,255,.15)}
+.qr-close-btn{margin-top:.75rem;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.6rem 1.8rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer;transition:color .2s,border-color .2s}
+.qr-close-btn:active{color:var(--text);border-color:var(--text)}
 .transfer-controls{display:flex;gap:.75rem;margin-top:1rem;justify-content:center}
 .transfer-controls .btn{font-size:12px;padding:.5rem 1rem;min-height:auto}
 .btn-red{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
@@ -372,6 +376,9 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   <div class="qr-scanner-wrap" id="qr-reader"></div>
   <div class="scan-hint" id="scan-hint">Point your camera at a FileDrop room QR code</div>
   <button class="qr-retry-btn hidden" id="qr-retry-btn" onclick="retryQRScanner()">Retry Camera</button>
+  <button class="qr-photo-btn" onclick="document.getElementById('qr-scan-file').click()">&#128247; Take Photo to Scan</button>
+  <input type="file" id="qr-scan-file" accept="image/*" capture="environment" class="hidden" onchange="scanQRFromFile(event)">
+  <button class="qr-close-btn" onclick="closeQRScanner()">Close Scanner</button>
 </div>
 <!-- Enlarged QR Modal -->
 <div class="qr-scanner-modal hidden" id="qr-enlarge-modal">
@@ -926,6 +933,22 @@ async function closeQRScanner(){
     try{await qrScanner.stop();}catch(e){}
     try{qrScanner.clear();}catch(e){}
     qrScanner=null;
+  }
+}
+
+async function scanQRFromFile(e){
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  const hint=document.getElementById('scan-hint');
+  if(hint)hint.textContent='Scanning image\u2026';
+  if(qrScanner){try{await qrScanner.stop();}catch(_){}try{qrScanner.clear();}catch(_){}qrScanner=null;}
+  try{
+    const reader=new Html5Qrcode('qr-reader');
+    const text=await reader.scanFile(file,false);
+    const code=extractRoomCode(text);
+    if(code){closeQRScanner();document.getElementById('join-code-input').value=code;joinRoom(code);}
+    else{if(hint)hint.textContent='No QR code found \u2014 try again.';}
+  }catch(err){
+    if(hint)hint.textContent='Could not read QR code \u2014 try again.';
   }
 }
 
