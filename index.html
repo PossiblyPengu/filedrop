@@ -541,20 +541,80 @@ function createRoom(){
     conn.on('open',async()=>{
       roomPin=getHostPin();
       encryptionEnabled=document.getElementById('enc-toggle').checked;
-      if(encryptionEnabled){localECDHKeyPair=await genECDHKeyPair();conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});setStatus('Exchanging keys\u2026');}
-      else{localECDHKeyPair=null;cryptoKey=null;conn.send({type:'ecdh-init',pubKey:null,hasPin:!!roomPin,encrypted:false});if(!roomPin)onConnected();else setStatus('Waiting for password\u2026');}
+      if(encryptionEnabled){
+        try{
+          localECDHKeyPair=await genECDHKeyPair();
+          if(!conn||!conn.open)return;
+          conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});
+          setStatus('Exchanging keys\u2026');
+        }catch(e){
+          console.error('ECDH init failed',e);
+          setStatus('Encryption error — try reconnecting');
+        }
+      }else{
+        localECDHKeyPair=null;
+        cryptoKey=null;
+        conn.send({type:'ecdh-init',pubKey:null,hasPin:!!roomPin,encrypted:false});
+        if(!roomPin)onConnected();
+        else setStatus('Waiting for password\u2026');
+      }
     });
     conn.on('data',async d=>{
       if(d.type==='ecdh-reply'){
-        if(encryptionEnabled&&d.pubKey&&localECDHKeyPair){cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);localECDHKeyPair=null;}
-        if(!roomPin)onConnected();else setStatus('Waiting for password\u2026');
+        if(encryptionEnabled&&d.pubKey&&localECDHKeyPair){
+          try{
+            cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);
+          }catch(e){
+            console.error('Host ECDH derive failed',e);
+          }
+          localECDHKeyPair=null;
+        }
+        if(encryptionEnabled&&!cryptoKey){
+          setStatus('Encryption setup failed — ask guest to rejoin');
+          return;
+        }
+        if(!roomPin)onConnected();
+        else setStatus('Waiting for password\u2026');
       } else if(d.type==='pin'){
-        if(d.pin===roomPin){pinFailCount=0;conn.send({type:'pin-ok'});onConnected();}
-        else{pinFailCount++;if(pinFailCount>=3){conn.send({type:'pin-fail'});setStatus('Too many wrong passwords \u2014 disconnecting');setTimeout(()=>{if(conn){try{conn.close();}catch(e){}}conn=null;pinFailCount=0;setDot('waiting');setStatus('Waiting for peer\u2026');},500);}else{conn.send({type:'pin-fail'});setStatus('Wrong password \u2014 waiting\u2026 ('+(3-pinFailCount)+' left)');}}
+        if(d.pin===roomPin){
+          pinFailCount=0;
+          conn.send({type:'pin-ok'});
+          onConnected();
+        }else{
+          pinFailCount++;
+          if(pinFailCount>=3){
+            conn.send({type:'pin-fail'});
+            setStatus('Too many wrong passwords \u2014 disconnecting');
+            setTimeout(()=>{
+              if(conn){
+                try{
+                  conn.close();
+                }catch(e){}
+              }
+              conn=null;
+              pinFailCount=0;
+              setDot('waiting');
+              setStatus('Waiting for peer\u2026');
+            },500);
+          }else{
+            conn.send({type:'pin-fail'});
+            setStatus('Wrong password \u2014 waiting\u2026 ('+(3-pinFailCount)+' left)');
+          }
+        }
       } else await handleIncoming(d);
     });
-    conn.on('close',()=>{setDot('waiting');setStatus('Peer disconnected');conn=null;cryptoKey=null;localECDHKeyPair=null;updateSendBtn()});
-    conn.on('error',()=>{setDot('error');setStatus('Connection error')});
+    conn.on('close',()=>{
+      setDot('waiting');
+      setStatus('Peer disconnected');
+      conn=null;
+      cryptoKey=null;
+      localECDHKeyPair=null;
+      updateSendBtn();
+    });
+    conn.on('error',()=>{
+      setDot('error');
+      setStatus('Connection error')
+    });
   });
   peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
 }
@@ -583,8 +643,9 @@ function doConnect(code){
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
       encryptionEnabled=d.encrypted!==false;
-      if(encryptionEnabled&&d.pubKey){localECDHKeyPair=await genECDHKeyPair();const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}
+      if(encryptionEnabled&&d.pubKey){try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}}
       else{cryptoKey=null;conn.send({type:'ecdh-reply',pubKey:null});}
+      if(encryptionEnabled&&!cryptoKey){setStatus('Encryption setup failed — try reconnecting');return;}
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
     } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
