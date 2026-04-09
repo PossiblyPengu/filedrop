@@ -617,28 +617,21 @@ function assembleFile(name){
 
 function openCamera(){document.getElementById('camera-input').click()}
 
-function openQRScanner(){
+async function openQRScanner(){
   const modal=document.getElementById('qr-scanner-modal');
+  const hint=document.querySelector('.scan-hint');
   modal.classList.remove('hidden');
   setTimeout(()=>modal.classList.add('active'),10);
-  if(!qrScanner){
+  if(hint)hint.textContent='Requesting camera access...';
+  try{
+    if(qrScanner){
+      try{await qrScanner.stop();}catch(e){}
+      try{qrScanner.clear();}catch(e){}
+      qrScanner=null;
+    }
     qrScanner=new Html5Qrcode('qr-reader');
-  }
-  qrScanner.start(
-    {facingMode:'environment',aspectRatio:1},
-    {fps:15,qrbox:220},
-    (decodedText)=>{
-      const code=extractRoomCode(decodedText);
-      if(code){
-        closeQRScanner();
-        document.getElementById('join-code-input').value=code;
-        joinRoom(code);
-      }
-    },
-    (errorMessage)=>{}
-  ).catch(()=>{
-    qrScanner.start(
-      {facingMode:'user',aspectRatio:1},
+    await qrScanner.start(
+      {facingMode:'environment',aspectRatio:1},
       {fps:15,qrbox:220},
       (decodedText)=>{
         const code=extractRoomCode(decodedText);
@@ -649,16 +642,39 @@ function openQRScanner(){
         }
       },
       (errorMessage)=>{}
-    ).catch(()=>{document.getElementById('join-status-text').textContent='Camera access denied or unavailable';});
-  });
+    );
+    if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
+  }catch(err1){
+    try{
+      await qrScanner.start(
+        {facingMode:'user',aspectRatio:1},
+        {fps:15,qrbox:220},
+        (decodedText)=>{
+          const code=extractRoomCode(decodedText);
+          if(code){
+            closeQRScanner();
+            document.getElementById('join-code-input').value=code;
+            joinRoom(code);
+          }
+        },
+        (errorMessage)=>{}
+      );
+      if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
+    }catch(err2){
+      if(hint)hint.textContent='Camera access denied. Please allow camera access and try again.';
+      setTimeout(()=>closeQRScanner(),2000);
+    }
+  }
 }
 
-function closeQRScanner(){
+async function closeQRScanner(){
   const modal=document.getElementById('qr-scanner-modal');
   modal.classList.remove('active');
   setTimeout(()=>modal.classList.add('hidden'),300);
   if(qrScanner){
-    qrScanner.stop().catch(()=>{});
+    try{await qrScanner.stop();}catch(e){}
+    try{qrScanner.clear();}catch(e){}
+    qrScanner=null;
   }
 }
 
