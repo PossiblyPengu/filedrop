@@ -357,6 +357,7 @@ let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
 let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
+let recvQueue=[],recvProcessing=false,recvBatchSize=8;
 
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
@@ -399,7 +400,7 @@ function submitPin(){const v=id=>document.getElementById(id).value;const p=v('gu
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
   conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;
-  selectedFiles=[];recvBuffers={};recvMeta={};
+  selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
   currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
   show('view-home');hide('view-join');hide('view-room');hide('camera-btn');
@@ -630,23 +631,50 @@ function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);co
 
 async function handleIncoming(d){
   if(d.type==='meta'){
-    recvMeta[d.name]={...d,received:0};recvBuffers[d.name]=new Array(d.totalChunks);
+    recvMeta[d.name]={...d,received:0,lastPct:0};recvBuffers[d.name]=new Array(d.totalChunks);
     show('room-recv-progress');
     const k=safeKey(d.name);
     document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
   }else if(d.type==='b'&&!pinPending){
-    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);if(!meta)return;
-    try{
-      const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
-      let data;if(encryptionEnabled&&cryptoKey){data=await decryptChunk(buf,cryptoKey);}else{data=buf;}
-      recvBuffers[meta.name][d.i]=data;meta.received++;
-      const pct=Math.round(meta.received/meta.totalChunks*100);const k=safeKey(meta.name);
-      const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
-      if(fill)fill.style.width=pct+'%';if(label)label.textContent=pct+'%';
-      if(meta.received===meta.totalChunks){if(fill)fill.classList.add('done');assembleFile(meta.name)}
-    }catch(e){console.error('Chunk error',e)}
+    const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
+    recvQueue.push({i:d.i,buf});
+    if(!recvProcessing)processRecvQueue();
   }
+}
+
+async function processRecvQueue(){
+  recvProcessing=true;
+  while(recvQueue.length>0){
+    const batch=recvQueue.splice(0,recvBatchSize);
+    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);
+    if(!meta){recvProcessing=false;return;}
+    await Promise.all(batch.map(async item=>{
+      try{
+        let data;
+        if(encryptionEnabled&&cryptoKey){data=await decryptChunk(item.buf,cryptoKey);}
+        else{data=item.buf;}
+        recvBuffers[meta.name][item.i]=data;
+      }catch(e){console.error('Decrypt error',e);}
+    }));
+    meta.received+=batch.length;
+    const pct=Math.round(meta.received/meta.totalChunks*100);
+    if(pct!==meta.lastPct){
+      meta.lastPct=pct;
+      const k=safeKey(meta.name);
+      const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
+      if(fill)fill.style.width=pct+'%';
+      if(label)label.textContent=pct+'%';
+    }
+    if(meta.received>=meta.totalChunks){
+      const k=safeKey(meta.name);
+      const fill=document.getElementById('rfill_'+k);
+      if(fill)fill.classList.add('done');
+      assembleFile(meta.name);
+    }
+    if(batch.length>=recvBatchSize)await yieldControl();
+  }
+  recvProcessing=false;
 }
 
 function assembleFile(name){
