@@ -302,16 +302,6 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
     <div id="room-pin-setup" class="hidden">
       <div class="divider"></div>
-      <div class="toggle-row">
-        <div>
-          <span class="toggle-label-main">End-to-end encryption</span>
-          <span class="toggle-label-sub">AES-256-GCM</span>
-        </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="enc-toggle" checked onchange="if(!this.checked)showToast('\u26a0\ufe0f Encryption disabled \u2014 files will be sent in plaintext')">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
       <span class="label">Room Password (Optional)</span>
       <div class="pin-wrap">
         <input type="tel" id="host-pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
@@ -402,7 +392,7 @@ const RECV_BATCH_SIZE=8;
 const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]}};
 let peer=null,conn=null,isHost=false;
 let selectedFiles=[],sentFiles=[],recvBuffers={},recvMeta={};
-let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
+let cryptoKey=null,roomPin=null,pinPending=false;
 let localECDHKeyPair=null,pinFailCount=0,receivedBlobURLs=[],sendThumbURLs=new Map();
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
 let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
@@ -481,7 +471,7 @@ function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').sl
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;localECDHKeyPair=null;pinFailCount=0;
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;
   receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
   selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
@@ -514,7 +504,7 @@ function enterRoom(code){
 
 function onConnected(){
   reconnectAttempts=0;
-  setDot('connected');setStatus(encryptionEnabled?'Connected \u2014 E2EE secured':'Connected \u2014 no encryption');
+  setDot('connected');setStatus('Connected \u2014 E2EE secured');
   document.getElementById('view-room').classList.add('connected-border');
   hide('room-pin-setup');hide('room-pin-entry');
   show('camera-btn');updateSendBtn();
@@ -540,28 +530,19 @@ function createRoom(){
     conn=c;
     conn.on('open',async()=>{
       roomPin=getHostPin();
-      encryptionEnabled=document.getElementById('enc-toggle').checked;
-      if(encryptionEnabled){
-        try{
-          localECDHKeyPair=await genECDHKeyPair();
-          if(!conn||!conn.open)return;
-          conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});
-          setStatus('Exchanging keys\u2026');
-        }catch(e){
-          console.error('ECDH init failed',e);
-          setStatus('Encryption error — try reconnecting');
-        }
-      }else{
-        localECDHKeyPair=null;
-        cryptoKey=null;
-        conn.send({type:'ecdh-init',pubKey:null,hasPin:!!roomPin,encrypted:false});
-        if(!roomPin)onConnected();
-        else setStatus('Waiting for password\u2026');
+      try{
+        localECDHKeyPair=await genECDHKeyPair();
+        if(!conn||!conn.open)return;
+        conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin});
+        setStatus('Exchanging keys\u2026');
+      }catch(e){
+        console.error('ECDH init failed',e);
+        setStatus('Encryption error \u2014 try reconnecting');
       }
     });
     conn.on('data',async d=>{
       if(d.type==='ecdh-reply'){
-        if(encryptionEnabled&&d.pubKey&&localECDHKeyPair){
+        if(d.pubKey&&localECDHKeyPair){
           try{
             cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);
           }catch(e){
@@ -569,8 +550,8 @@ function createRoom(){
           }
           localECDHKeyPair=null;
         }
-        if(encryptionEnabled&&!cryptoKey){
-          setStatus('Encryption setup failed — ask guest to rejoin');
+        if(!cryptoKey){
+          setStatus('Encryption setup failed \u2014 ask guest to rejoin');
           return;
         }
         if(!roomPin)onConnected();
@@ -642,10 +623,9 @@ function doConnect(code){
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
-      encryptionEnabled=d.encrypted!==false;
-      if(encryptionEnabled&&d.pubKey){try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}}
-      else{cryptoKey=null;conn.send({type:'ecdh-reply',pubKey:null});}
-      if(encryptionEnabled&&!cryptoKey){setStatus('Encryption setup failed — try reconnecting');return;}
+      if(!d.pubKey){setStatus('Host does not support encryption');if(conn)try{conn.close();}catch(_){}return;}
+      try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}
+      if(!cryptoKey){setStatus('Encryption setup failed — try reconnecting');return;}
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
     } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
@@ -668,7 +648,7 @@ function scheduleReconnect(){
 
 async function resumeSend(){
   if(!conn||pendingSendIdx>=selectedFiles.length)return;
-  if(encryptionEnabled&&!cryptoKey)return;
+  if(!cryptoKey)return;
   show('room-send-progress');
   const btn=document.getElementById('room-send-btn');btn.disabled=true;
   sendStartTime=Date.now();sendBytesSent=0;
@@ -689,7 +669,7 @@ function removeFile(i){const f=selectedFiles[i];const k=f.name+f.size;if(sendThu
 function deleteSentFile(i){const f=sentFiles[i];if(!f)return;sentFiles.splice(i,1);renderSendList();if(conn&&conn.open)conn.send({type:'del',name:f.name,size:f.size});}
 function getThumbURL(f){const k=f.name+f.size;if(!sendThumbURLs.has(k))sendThumbURLs.set(k,URL.createObjectURL(f));return sendThumbURLs.get(k);}
 function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const safeName=escapeHtml(f.name);const icon=isImg?`<img src="${getThumbURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>{const safeName=escapeHtml(f.name);return`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`}).join('')}
-function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
+function updateSendBtn(){const ready=conn&&!!cryptoKey&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
   const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;
@@ -700,7 +680,7 @@ function updateSpeed(){
 
 async function sendFiles(){
   if(!conn||!selectedFiles.length||pinPending)return;
-  if(encryptionEnabled&&!cryptoKey)return;
+  if(!cryptoKey)return;
   transferPaused=false;transferCancelled=false;
   const btn=document.getElementById('room-send-btn');btn.disabled=true;
   const controls=document.getElementById('room-transfer-controls');
@@ -752,8 +732,7 @@ async function sendOneFile(file,idx){
         if(batchCount===0)await waitForBuffer();
         batchCount=(batchCount+1)%CHUNKS_PER_BATCH;
         let d;
-        if(encryptionEnabled&&cryptoKey){d=new Uint8Array(await encryptChunk(chunkBuf,cryptoKey));}
-        else{d=new Uint8Array(chunkBuf);}
+        d=new Uint8Array(await encryptChunk(chunkBuf,cryptoKey));
         conn.send({type:'b',i:sent,d});
         currentSendProgress=Math.round((sent+1)/totalChunks*100);
         updateProg(idx,currentSendProgress,sent+1===totalChunks);
@@ -835,8 +814,7 @@ async function processRecvQueue(){
     await Promise.all(batch.map(async item=>{
       try{
         let data;
-        if(encryptionEnabled&&cryptoKey){data=await decryptChunk(item.buf,cryptoKey);}
-        else{data=item.buf;}
+        data=await decryptChunk(item.buf,cryptoKey);
         if(item.i<0||item.i>=meta.totalChunks)return;
         recvBuffers[meta.name][item.i]=data;
         meta.bytesReceived+=item.byteLength||0;
