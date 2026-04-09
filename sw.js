@@ -1,9 +1,10 @@
-const CACHE = 'filedrop-v2';
+const CACHE = 'filedrop-v5';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './preview.svg',
   './lib/peerjs.min.js',
   './lib/qrcode.min.js',
   './lib/html5-qrcode.min.js',
