@@ -1,4 +1,4 @@
-const CACHE = 'filedrop-v1';
+const CACHE = 'filedrop-v2';
 const ASSETS = [
   './',
   './index.html',
