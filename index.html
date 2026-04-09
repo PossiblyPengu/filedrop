@@ -47,8 +47,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .mode-btn .mode-title{font-family:var(--sans);font-size:1.1rem;font-weight:700;color:#fff;display:block}
 .mode-btn .mode-desc{font-size:11px;color:var(--muted);margin-top:.2rem;display:block;line-height:1.4}
 .label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:block}
-.btn-back{background:none;border:none;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 0;margin-bottom:1.25rem;display:flex;align-items:center;gap:.4rem;min-height:44px;transition:color .2s}
-.btn-back:active,.btn-back:hover{color:var(--text)}
+.btn-back{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem;min-height:48px;min-width:100px;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.btn-back::before{content:'\2190';font-size:1.2rem;color:var(--accent)}
+.btn-back:active{background:var(--accent-dim);border-color:var(--accent);color:var(--text);transform:scale(.96)}
+.btn-back:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
 .share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch}
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
 .share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
@@ -198,6 +200,8 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   .footer{font-size:9px;padding:0 .5rem;text-align:center}
   .speed-info{font-size:10px}
   #app{padding-top:calc(1.25rem + var(--safe-top))}
+  .btn-back{min-height:52px;min-width:110px;font-size:13px;padding:.875rem 1.25rem;margin-bottom:1rem}
+  .btn-back::before{font-size:1.3rem}
 }
 </style>
 </head>
@@ -227,7 +231,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
   <!-- JOIN ENTRY -->
   <div id="view-join" class="card card-accent hidden">
-    <button class="btn-back" onclick="goHome()">&#8592; Back</button>
+    <button class="btn-back" onclick="goHome()">Back</button>
     <span class="label">Room Code</span>
     <input type="text" id="join-code-input" maxlength="6" placeholder="XXXXXX"
       autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
@@ -247,7 +251,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
   <!-- ROOM (bidirectional — host & guest both use this) -->
   <div id="view-room" class="card card-accent hidden">
-    <button class="btn-back" onclick="goHome()">&#8592; Back</button>
+    <button class="btn-back" onclick="goHome()">Back</button>
 
     <span class="label" id="room-label">Room</span>
     <div class="share-grid">
