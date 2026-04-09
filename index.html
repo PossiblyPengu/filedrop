@@ -538,11 +538,10 @@ function createRoom(){
       return;
     }
     conn=c;
-    const kpPromise=genECDHKeyPair();
     conn.on('open',async()=>{
       roomPin=getHostPin();
       encryptionEnabled=document.getElementById('enc-toggle').checked;
-      if(encryptionEnabled){localECDHKeyPair=await kpPromise;conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});setStatus('Exchanging keys\u2026');}
+      if(encryptionEnabled){localECDHKeyPair=await genECDHKeyPair();conn.send({type:'ecdh-init',pubKey:await exportECDHPubKey(localECDHKeyPair),hasPin:!!roomPin,encrypted:true});setStatus('Exchanging keys\u2026');}
       else{localECDHKeyPair=null;cryptoKey=null;conn.send({type:'ecdh-init',pubKey:null,hasPin:!!roomPin,encrypted:false});if(!roomPin)onConnected();else setStatus('Waiting for password\u2026');}
     });
     conn.on('data',async d=>{
@@ -579,13 +578,12 @@ function joinRoom(autoCode){
 }
 
 function doConnect(code){
-  const kpPromise=genECDHKeyPair();
   conn=peer.connect(code,{reliable:true});
   conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
       encryptionEnabled=d.encrypted!==false;
-      if(encryptionEnabled&&d.pubKey){localECDHKeyPair=await kpPromise;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}
+      if(encryptionEnabled&&d.pubKey){localECDHKeyPair=await genECDHKeyPair();const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});localECDHKeyPair=null;}
       else{cryptoKey=null;conn.send({type:'ecdh-reply',pubKey:null});}
       if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
       else onConnected();
