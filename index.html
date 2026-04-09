@@ -161,6 +161,11 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .qr-scanner-modal.active{opacity:1;pointer-events:auto}
 .qr-scanner-title{font-family:var(--sans);font-size:1.25rem;font-weight:700;margin-bottom:1rem;color:#fff}
 .qr-scanner-wrap{width:100%;max-width:400px;aspect-ratio:1;background:#000;border-radius:16px;overflow:hidden;border:2px solid var(--accent);position:relative}
+.qr-clickable{cursor:pointer;transition:transform .2s,box-shadow .2s}
+.qr-clickable:active{transform:scale(.95)}
+@media(hover:hover){.qr-clickable:hover{box-shadow:0 0 20px var(--accent-glow);transform:scale(1.02)}}
+.qr-modal{width:100%;max-width:320px;background:#fff;padding:20px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:1rem}
+.qr-modal-inner canvas,.qr-modal-inner img{width:280px!important;height:280px!important}
 .qr-scanner-close{position:absolute;top:1rem;right:1rem;background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
 .qr-scanner-close:active{background:var(--accent-dim)}
 .qr-retry-btn{margin-top:1rem;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:.6rem 1.2rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer}
@@ -176,6 +181,18 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .camera-btn:hover{box-shadow:0 6px 30px rgba(0,217,255,.3);transform:translateY(-2px)}
 @media(min-width:800px){.camera-btn{display:none}}
 .hidden{display:none!important}
+.view-transition{animation:slideIn .4s cubic-bezier(.4,0,.2,1)}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+.file-item-enter{animation:itemPop .3s cubic-bezier(.4,0,.2,1)}
+@keyframes itemPop{from{opacity:0;transform:scale(.9) translateY(-10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.recv-item-enter{animation:slideUp .4s cubic-bezier(.4,0,.2,1)}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.success-pulse{animation:successPulse .6s ease}
+@keyframes successPulse{0%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 30px var(--green-glow)}100%{transform:scale(1)}}
+.shake{animation:shake .5s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-5px)}20%,40%,60%,80%{transform:translateX(5px)}}
+.progress-fill-anim{transition:width .3s cubic-bezier(.4,0,.2,1)}
+.btn-press:active{transform:scale(.95)}
 .mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
 #join-code-input{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1rem;color:var(--text);font-family:var(--mono);font-size:clamp(1.6rem,8vw,2.2rem);letter-spacing:.45em;text-transform:uppercase;text-align:center;outline:none;transition:all .2s;display:block;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
 #join-code-input:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
@@ -264,8 +281,8 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
         </div>
       </div>
       <div class="qr-wrap">
-        <div class="qr-inner" id="room-qr-container"></div>
-        <div class="qr-label">Scan to join</div>
+        <div class="qr-inner qr-clickable" id="room-qr-container" onclick="showEnlargedQR()" title="Tap to enlarge"></div>
+        <div class="qr-label">Tap QR to enlarge</div>
       </div>
     </div>
 
@@ -350,6 +367,15 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   <div class="scan-hint" id="scan-hint">Point your camera at a FileDrop room QR code</div>
   <button class="qr-retry-btn hidden" id="qr-retry-btn" onclick="retryQRScanner()">Retry Camera</button>
 </div>
+<!-- Enlarged QR Modal -->
+<div class="qr-scanner-modal hidden" id="qr-enlarge-modal">
+  <button class="qr-scanner-close" onclick="closeEnlargedQR()">&#10005;</button>
+  <div class="qr-scanner-title">Room QR Code</div>
+  <div class="qr-modal">
+    <div class="qr-modal-inner qr-clickable" id="enlarged-qr-container" onclick="closeEnlargedQR()"></div>
+    <div class="scan-hint">Tap QR code to close</div>
+  </div>
+</div>
 <button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
 <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
 <script>
@@ -373,8 +399,8 @@ function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(
 function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
 function roomURL(code){const u=new URL(window.location.href);u.searchParams.set('room',code);return u.toString()}
-function show(id){document.getElementById(id).classList.remove('hidden')}
-function hide(id){document.getElementById(id).classList.add('hidden')}
+function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
+function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
 function setDot(s){document.getElementById('room-dot').className='dot '+s}
 function setStatus(t){document.getElementById('room-status-text').textContent=t}
 
@@ -390,6 +416,23 @@ function buildQR(containerId,code){
   const el=document.getElementById(containerId);el.innerHTML='';
   const size=window.innerWidth<460?160:130;
   new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+}
+
+function showEnlargedQR(){
+  const code=document.getElementById('room-code-display').textContent;
+  if(code.includes('\u00B7'))return;
+  const modal=document.getElementById('qr-enlarge-modal');
+  const container=document.getElementById('enlarged-qr-container');
+  container.innerHTML='';
+  new QRCode(container,{text:roomURL(code),width:280,height:280,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+  modal.classList.remove('hidden');
+  setTimeout(()=>modal.classList.add('active'),10);
+}
+
+function closeEnlargedQR(){
+  const modal=document.getElementById('qr-enlarge-modal');
+  modal.classList.remove('active');
+  setTimeout(()=>modal.classList.add('hidden'),300);
 }
 
 function copyRoomCode(){
@@ -424,7 +467,7 @@ function goHome(){
   document.getElementById('room-recv-items').innerHTML='';
   document.getElementById('room-send-progress').classList.add('hidden');
   document.getElementById('room-recv-progress').classList.add('hidden');
-  const sb=document.getElementById('room-send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';
+  const sb=document.getElementById('room-send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';sb.classList.remove('success-pulse');
   document.getElementById('join-code-input').value='';
   document.getElementById('join-btn').disabled=false;
   document.getElementById('room-code-display').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
@@ -544,7 +587,7 @@ function onDrop(e){e.preventDefault();document.getElementById('dropzone').classL
 function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
-function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('')}
+function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('')}
 function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
@@ -583,7 +626,7 @@ async function sendFiles(){
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='cancelled';
   }else{
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
-    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
+    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');
   }
 }
 
@@ -706,7 +749,7 @@ async function processRecvQueue(){
 function assembleFile(name){
   const meta=recvMeta[name];const mime=meta.mime||'application/octet-stream';
   const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);
-  const div=document.createElement('div');div.className='recv-item recv-item-col';
+  const div=document.createElement('div');div.className='recv-item recv-item-col recv-item-enter';
   let preview='';
   if(mime.startsWith('image/'))preview=`<img src="${url}" class="recv-preview" alt="${name}">`;
   else if(mime.startsWith('video/'))preview=`<video src="${url}" class="recv-preview" controls playsinline></video>`;
