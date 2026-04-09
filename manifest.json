@@ -1,0 +1,19 @@
+{
+  "name": "FileDrop",
+  "short_name": "FileDrop",
+  "description": "Secure peer-to-peer file transfer",
+  "start_url": "./",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
