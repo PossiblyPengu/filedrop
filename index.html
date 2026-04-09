@@ -19,6 +19,7 @@
 <script src="lib/html5-qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button,a[href],[role=button]{touch-action:manipulation;-webkit-touch-callout:none}
 :root{
   --bg:#08090c; --surface:#0f1116; --surface-glass:rgba(15,17,22,.85); --border:#1c1f28; --border2:#252932;
   --text:#c5d0e5; --muted:#4a5568;
@@ -79,7 +80,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .qr-inner canvas,.qr-inner img{display:block}
 .qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
 .status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
 .dot.init{animation:pulse 1.2s infinite}
 .dot.waiting{background:var(--accent);animation:pulse 1.2s infinite}
 .dot.connected{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:none}
@@ -110,7 +111,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .prog-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:.35rem}
 .prog-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78%}
 .prog-pct{color:var(--accent);flex-shrink:0}
-.prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:var(--accent);box-shadow:0 0 6px var(--accent-glow);transition:width .1s linear;border-radius:2px}
 .prog-fill.done{background:var(--green);box-shadow:0 0 6px rgba(0,255,136,.3)}
 .btn{width:100%;padding:1rem 1.5rem;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);min-height:52px;user-select:none;position:relative;overflow:hidden}
@@ -129,7 +130,7 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
 @keyframes slidein{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .ri-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .ri-size{color:var(--muted);font-size:11px;flex-shrink:0}
-.dl-btn{background:var(--green-dim);border:1px solid rgba(0,255,136,.25);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .75rem;cursor:pointer;text-decoration:none;transition:background .2s;flex-shrink:0;min-height:36px;display:flex;align-items:center}
+.dl-btn{background:var(--green-dim);border:1px solid rgba(0,255,136,.25);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .75rem;cursor:pointer;text-decoration:none;transition:background .2s;flex-shrink:0;min-height:44px;display:flex;align-items:center;touch-action:manipulation}
 .dl-btn:active{background:rgba(0,255,136,.14)}
 .empty{font-size:12px;color:var(--muted);text-align:center;padding:1.25rem 0}
 .footer{margin-top:2.5rem;font-size:11px;color:var(--muted);letter-spacing:.12em;text-align:center;padding-bottom:.5rem;opacity:.7}
@@ -214,19 +215,28 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   .mode-btn .icon{font-size:1.5rem;margin-bottom:0}
   .share-grid{grid-template-columns:1fr}
   .qr-wrap{order:-1;display:flex;flex-direction:column;align-items:center;padding:.5rem}
-  .qr-inner img,.qr-inner canvas{width:110px!important;height:110px!important}
+  .qr-inner img,.qr-inner canvas{width:130px!important;height:130px!important}
   .room-box{padding:1rem .875rem}
   .room-code{font-size:clamp(2rem,11vw,2.8rem)}
   .divider{margin:.75rem 0}
-  .btn{width:100%}
+  .btn{width:100%;min-height:54px}
   .copy-row{width:100%;display:flex;gap:.5rem}
-  .copy-btn,.share-btn{flex:1}
+  .copy-btn,.share-btn{flex:1;min-height:48px}
   .prog-item{margin-bottom:.5rem}
   .footer{font-size:9px;padding:0 .5rem;text-align:center}
   .speed-info{font-size:10px}
   #app{padding-top:calc(1.25rem + var(--safe-top))}
   .btn-back{min-height:52px;min-width:110px;font-size:13px;padding:.875rem 1.25rem;margin-bottom:1rem}
   .btn-back::before{font-size:1.3rem}
+  .dropzone{padding:1.25rem .875rem}
+  .status{font-size:13px;margin-top:.625rem}
+  .dot{width:10px;height:10px}
+  .label{font-size:11px}
+  .sent-item .fi-remove{width:40px;height:40px;font-size:16px}
+  .recv-preview{max-height:180px}
+  .dl-btn{min-height:48px;padding:.5rem 1rem}
+  .file-item,.sent-item{padding:.625rem .75rem}
+  .recv-item{padding:.625rem .75rem}
 }
 </style>
 </head>
@@ -265,8 +275,9 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
     <div class="mt-2">
       <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">Join Room</button>
     </div>
-    <div class="mt-2" style="text-align:center">
-      <button class="btn btn-secondary" onclick="openQRScanner()">&#128247; Scan QR Code</button>
+    <div class="mt-2" style="display:flex;gap:.5rem">
+      <button class="btn btn-secondary" style="flex:1" onclick="openQRScanner()">&#128247; Scan QR</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="pasteCode()" id="paste-btn">&#128203; Paste Code</button>
     </div>
     <div class="status">
       <div class="dot" id="join-dot"></div>
@@ -279,7 +290,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
     <button class="btn-back" onclick="goHome()">Back</button>
 
     <span class="label" id="room-label">Room</span>
-    <div class="share-grid">
+    <div class="share-grid" id="room-share-grid">
       <div class="room-box">
         <div class="room-code" id="room-code-display">&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;</div>
         <div class="room-hint">Room Code</div>
@@ -398,7 +409,13 @@ const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
 let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
 let recvQueue=[],recvProcessing=false;
+let wakeLock=null;
 
+async function requestWakeLock(){if(!('wakeLock' in navigator))return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
+function releaseWakeLock(){if(wakeLock){try{wakeLock.release();}catch(e){}wakeLock=null;}}
+function buzz(p){if('vibrate' in navigator)navigator.vibrate(p);}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&conn&&conn.open)requestWakeLock();});
+async function pasteCode(){try{const t=await navigator.clipboard.readText();const code=extractRoomCode(t)||(t.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));if(code&&code.length===6){document.getElementById('join-code-input').value=code;}}catch(e){}}
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,n=>c[n%c.length]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
 function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`${m}:${Math.floor(s%60).toString().padStart(2,'0')} remaining`}
@@ -468,7 +485,7 @@ function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').sl
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;releaseWakeLock();
   receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
   selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
@@ -495,7 +512,14 @@ function goHome(){
 
 function enterRoom(code){
   document.getElementById('room-code-display').textContent=code;
-  buildQR('room-qr-container',code);
+  if(isHost){
+    buildQR('room-qr-container',code);
+    document.getElementById('room-share-grid').classList.remove('hidden');
+    document.getElementById('room-label').textContent='Your Room';
+  }else{
+    document.getElementById('room-share-grid').classList.add('hidden');
+    document.getElementById('room-label').textContent='Joining Room';
+  }
   hide('view-home');hide('view-join');show('view-room');
 }
 
@@ -506,6 +530,8 @@ function onConnected(){
   hide('room-pin-setup');hide('room-pin-entry');
   show('camera-btn');updateSendBtn();
   closeEnlargedQR();
+  requestWakeLock();
+  buzz(50);
   if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
 
@@ -514,7 +540,6 @@ function createRoom(){
   const code=randCode();
   enterRoom(code);
   show('room-pin-setup');
-  document.getElementById('room-label').textContent='Your Room';
   setStatus('Initializing\u2026');
   peer=new Peer(code,PEERJS_CFG);
   peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026')});
@@ -607,7 +632,6 @@ function joinRoom(autoCode){
   document.getElementById('join-status-text').textContent='Connecting\u2026';
   isHost=false;currentRoomCode=code;reconnectAttempts=0;
   enterRoom(code);
-  document.getElementById('room-label').textContent='Room';
   setStatus('Connecting\u2026');setDot('waiting');
   if(peer){try{peer.destroy()}catch(e){}}
   peer=new Peer(PEERJS_CFG);
@@ -703,7 +727,7 @@ async function sendFiles(){
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='cancelled';
   }else{
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
-    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');
+    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');buzz([100,50,100]);
   }
 }
 
@@ -849,6 +873,7 @@ function assembleFile(name){
   else if(mime.startsWith('audio/'))preview=`<audio src="${url}" class="recv-audio" controls></audio>`;
   div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${safeRecvName2}" data-size="${meta.size}">${safeRecvName2}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${safeRecvName2}">Save</a></div>`;
   document.getElementById('room-recv-list').appendChild(div);
+  setTimeout(()=>div.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
   setTimeout(()=>{URL.revokeObjectURL(url);const i=receivedBlobURLs.indexOf(url);if(i>-1)receivedBlobURLs.splice(i,1);},60000);
   delete recvBuffers[name];delete recvMeta[name];
   const remaining=Object.values(recvMeta).filter(m=>m.received<m.totalChunks).length;
@@ -958,6 +983,10 @@ window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('d
 window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){addFiles(files);e.preventDefault();}});
 
 window.addEventListener('load',()=>{
+  if(window.matchMedia('(hover:none),(pointer:coarse)').matches){
+    const dz=document.querySelector('.dz-text');
+    if(dz)dz.innerHTML='Tap to pick files';
+  }
   const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
   if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
 });
