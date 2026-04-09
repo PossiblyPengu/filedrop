@@ -158,6 +158,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .qr-scanner-wrap{width:100%;max-width:400px;aspect-ratio:1;background:#000;border-radius:16px;overflow:hidden;border:2px solid var(--accent);position:relative}
 .qr-scanner-close{position:absolute;top:1rem;right:1rem;background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
 .qr-scanner-close:active{background:var(--accent-dim)}
+.qr-retry-btn{margin-top:1rem;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:.6rem 1.2rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer}
 #qr-reader video{border-radius:12px;object-fit:cover;width:100%!important;height:100%!important}
 #qr-reader{position:relative;width:100%;height:100%}
 #qr-reader__dashboard_section_csr span{color:var(--text)!important}
@@ -331,7 +332,8 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   <button class="qr-scanner-close" onclick="closeQRScanner()">&#10005;</button>
   <div class="qr-scanner-title">Scan Room QR Code</div>
   <div class="qr-scanner-wrap" id="qr-reader"></div>
-  <div class="scan-hint">Point your camera at a FileDrop room QR code</div>
+  <div class="scan-hint" id="scan-hint">Point your camera at a FileDrop room QR code</div>
+  <button class="qr-retry-btn hidden" id="qr-retry-btn" onclick="retryQRScanner()">Retry Camera</button>
 </div>
 <button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
 <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
@@ -619,16 +621,42 @@ function openCamera(){document.getElementById('camera-input').click()}
 
 async function openQRScanner(){
   const modal=document.getElementById('qr-scanner-modal');
-  const hint=document.querySelector('.scan-hint');
+  const hint=document.getElementById('scan-hint');
+  const retryBtn=document.getElementById('qr-retry-btn');
   modal.classList.remove('hidden');
-  setTimeout(()=>modal.classList.add('active'),10);
+  modal.classList.add('active');
   if(hint)hint.textContent='Requesting camera access...';
+  if(retryBtn)retryBtn.classList.add('hidden');
+  await new Promise(r=>setTimeout(r,300));
+  await startQRScanner(hint,retryBtn);
+}
+
+async function checkCameraPermission(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:true});
+    stream.getTracks().forEach(t=>t.stop());
+    return 'granted';
+  }catch(e){
+    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError')return 'denied';
+    if(e.name==='NotFoundError')return 'notfound';
+    return 'error';
+  }
+}
+
+async function startQRScanner(hint,retryBtn){
+  const perm=await checkCameraPermission();
+  if(perm==='denied'){
+    if(hint)hint.textContent='Camera permission denied. Check browser settings.';
+    if(retryBtn)retryBtn.classList.remove('hidden');
+    return;
+  }
   try{
     if(qrScanner){
       try{await qrScanner.stop();}catch(e){}
       try{qrScanner.clear();}catch(e){}
       qrScanner=null;
     }
+    await new Promise(r=>setTimeout(r,100));
     qrScanner=new Html5Qrcode('qr-reader');
     await qrScanner.start(
       {facingMode:'environment',aspectRatio:1},
@@ -644,7 +672,9 @@ async function openQRScanner(){
       (errorMessage)=>{}
     );
     if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
+    if(retryBtn)retryBtn.classList.add('hidden');
   }catch(err1){
+    console.log('Rear camera failed:',err1);
     try{
       await qrScanner.start(
         {facingMode:'user',aspectRatio:1},
@@ -660,11 +690,21 @@ async function openQRScanner(){
         (errorMessage)=>{}
       );
       if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
+      if(retryBtn)retryBtn.classList.add('hidden');
     }catch(err2){
-      if(hint)hint.textContent='Camera access denied. Please allow camera access and try again.';
-      setTimeout(()=>closeQRScanner(),2000);
+      console.log('Front camera failed:',err2);
+      if(hint)hint.textContent='Camera not available. Tap Retry to try again.';
+      if(retryBtn)retryBtn.classList.remove('hidden');
     }
   }
+}
+
+function retryQRScanner(){
+  const hint=document.getElementById('scan-hint');
+  const retryBtn=document.getElementById('qr-retry-btn');
+  if(hint)hint.textContent='Requesting camera access...';
+  if(retryBtn)retryBtn.classList.add('hidden');
+  startQRScanner(hint,retryBtn);
 }
 
 async function closeQRScanner(){
