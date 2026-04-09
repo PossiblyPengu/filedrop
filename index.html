@@ -469,11 +469,11 @@ function showToast(msg){
 function copyRoomCode(){
   const code=document.getElementById('room-code-display').textContent;
   const btn=document.getElementById('room-copy-btn');const orig=btn.textContent;
-  navigator.clipboard.writeText(code).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>showToast('Copy failed — share the code manually'));
+  navigator.clipboard.writeText(roomURL(code)).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>showToast('Copy failed — share the code manually'));
 }
 function shareRoomLink(){
   const code=document.getElementById('room-code-display').textContent;
-  if(navigator.share)navigator.share({title:'FileDrop Room',text:'Join my FileDrop room: '+code,url:roomURL(code)});else copyRoomCode();
+  if(navigator.share)navigator.share({title:'FileDrop',url:roomURL(code)});else copyRoomCode();
 }
 
 function getHostPin(){const v=id=>document.getElementById(id).value;const p=v('host-pin1')+v('host-pin2')+v('host-pin3')+v('host-pin4');return p.length===4?p:null}
