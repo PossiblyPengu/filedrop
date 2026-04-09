@@ -625,42 +625,25 @@ async function openQRScanner(){
   const retryBtn=document.getElementById('qr-retry-btn');
   modal.classList.remove('hidden');
   modal.classList.add('active');
-  if(hint)hint.textContent='Requesting camera access...';
+  if(hint)hint.textContent='Starting camera...';
   if(retryBtn)retryBtn.classList.add('hidden');
-  await new Promise(r=>setTimeout(r,300));
+  await new Promise(r=>setTimeout(r,100));
   await startQRScanner(hint,retryBtn);
 }
 
-async function checkCameraPermission(){
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:true});
-    stream.getTracks().forEach(t=>t.stop());
-    return 'granted';
-  }catch(e){
-    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError')return 'denied';
-    if(e.name==='NotFoundError')return 'notfound';
-    return 'error';
-  }
-}
-
 async function startQRScanner(hint,retryBtn){
-  const perm=await checkCameraPermission();
-  if(perm==='denied'){
-    if(hint)hint.textContent='Camera permission denied. Check browser settings.';
-    if(retryBtn)retryBtn.classList.remove('hidden');
-    return;
-  }
   try{
     if(qrScanner){
       try{await qrScanner.stop();}catch(e){}
       try{qrScanner.clear();}catch(e){}
       qrScanner=null;
     }
-    await new Promise(r=>setTimeout(r,100));
+    document.getElementById('qr-reader').innerHTML='';
+    await new Promise(r=>setTimeout(r,50));
     qrScanner=new Html5Qrcode('qr-reader');
-    await qrScanner.start(
-      {facingMode:'environment',aspectRatio:1},
-      {fps:15,qrbox:220},
+    const config={fps:10,qrbox:200};
+    const camConfig={facingMode:'environment'};
+    await qrScanner.start(camConfig,config,
       (decodedText)=>{
         const code=extractRoomCode(decodedText);
         if(code){
@@ -674,11 +657,10 @@ async function startQRScanner(hint,retryBtn){
     if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
     if(retryBtn)retryBtn.classList.add('hidden');
   }catch(err1){
-    console.log('Rear camera failed:',err1);
+    console.log('Rear camera failed:',err1.name,err1.message);
     try{
-      await qrScanner.start(
-        {facingMode:'user',aspectRatio:1},
-        {fps:15,qrbox:220},
+      const config={fps:10,qrbox:200};
+      await qrScanner.start({facingMode:'user'},config,
         (decodedText)=>{
           const code=extractRoomCode(decodedText);
           if(code){
@@ -692,8 +674,12 @@ async function startQRScanner(hint,retryBtn){
       if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
       if(retryBtn)retryBtn.classList.add('hidden');
     }catch(err2){
-      console.log('Front camera failed:',err2);
-      if(hint)hint.textContent='Camera not available. Tap Retry to try again.';
+      console.log('Front camera failed:',err2.name,err2.message);
+      let msg='Camera error. ';
+      if(err2.name==='NotAllowedError')msg='Permission denied. ';
+      else if(err2.name==='NotFoundError')msg='No camera found. ';
+      else if(err2.name==='NotReadableError')msg='Camera in use. ';
+      if(hint)hint.textContent=msg+'Tap Retry to try again.';
       if(retryBtn)retryBtn.classList.remove('hidden');
     }
   }
