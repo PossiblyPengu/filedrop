@@ -184,15 +184,23 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .view-transition{animation:slideIn .4s cubic-bezier(.4,0,.2,1)}
 @keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
 .file-item-enter{animation:itemPop .3s cubic-bezier(.4,0,.2,1)}
+.sent-item{display:flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,rgba(0,255,157,.08) 0%,rgba(0,255,157,.03) 100%);border:1px solid rgba(0,255,157,.25);border-radius:8px;padding:.75rem 1rem;font-size:13px;min-height:52px;animation:slidein .4s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 8px rgba(0,255,157,.1);margin-bottom:.5rem}
+.sent-item .fi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.sent-item .fi-size{color:var(--muted);font-size:11px;flex-shrink:0}
+.sent-item .fi-remove{background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:.3rem;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all .2s}
+.sent-item .fi-remove:active{background:var(--red-dim)}
 @keyframes itemPop{from{opacity:0;transform:scale(.9) translateY(-10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .recv-item-enter{animation:slideUp .4s cubic-bezier(.4,0,.2,1)}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(100px)}}
 .success-pulse{animation:successPulse .6s ease}
 @keyframes successPulse{0%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 30px var(--green-glow)}100%{transform:scale(1)}}
 .shake{animation:shake .5s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-5px)}20%,40%,60%,80%{transform:translateX(5px)}}
 .progress-fill-anim{transition:width .3s cubic-bezier(.4,0,.2,1)}
 .btn-press:active{transform:scale(.95)}
+.toast{position:fixed;top:calc(1rem + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--red-dim);border:1px solid var(--red);color:var(--text);padding:1rem 1.5rem;border-radius:10px;font-size:13px;z-index:300;opacity:0;transition:all .3s ease;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
 #join-code-input{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1rem;color:var(--text);font-family:var(--mono);font-size:clamp(1.6rem,8vw,2.2rem);letter-spacing:.45em;text-transform:uppercase;text-align:center;outline:none;transition:all .2s;display:block;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
 #join-code-input:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
@@ -333,6 +341,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
       <div class="dz-text">Tap to pick files<br><span>or drag &amp; drop</span></div>
     </div>
     <div class="file-list" id="room-send-list"></div>
+    <div class="file-list" id="room-sent-list"></div>
     <div id="room-send-progress" class="progress-section hidden">
       <span class="label">Sending</span>
       <div class="speed-info"><span id="speed-val">0 B/s</span> &middot; <span id="eta-val">calculating&hellip;</span></div>
@@ -358,6 +367,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
   </div>
 
   <div class="footer">WebRTC peer-to-peer &middot; AES-256-GCM E2EE &middot; Files never touch servers</div>
+<div class="toast" id="toast"></div>
 </div>
 <!-- QR Scanner Modal -->
 <div class="qr-scanner-modal hidden" id="qr-scanner-modal">
@@ -384,7 +394,7 @@ const MAX_BUFFER=16*1024*1024;
 const CHUNKS_PER_BATCH=4;
 const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}};
 let peer=null,conn=null,isHost=false;
-let selectedFiles=[],recvBuffers={},recvMeta={};
+let selectedFiles=[],sentFiles=[],recvBuffers={},recvMeta={};
 let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
 let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
@@ -433,6 +443,13 @@ function closeEnlargedQR(){
   const modal=document.getElementById('qr-enlarge-modal');
   modal.classList.remove('active');
   setTimeout(()=>modal.classList.add('hidden'),300);
+}
+
+function showToast(msg){
+  const toast=document.getElementById('toast');
+  toast.textContent=msg;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'),4000);
 }
 
 function copyRoomCode(){
@@ -489,6 +506,7 @@ function onConnected(){
   document.getElementById('view-room').classList.add('connected-border');
   hide('room-pin-setup');hide('room-pin-entry');
   show('camera-btn');updateSendBtn();
+  closeEnlargedQR();
   if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
 
@@ -502,6 +520,11 @@ function createRoom(){
   peer=new Peer(code,PEERJS_CFG);
   peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026')});
   peer.on('connection',async c=>{
+    if(conn&&conn.open){
+      try{c.send({type:'room-full'});c.close();}catch(e){}
+      showToast('Someone tried to join — room is occupied');
+      return;
+    }
     conn=c;
     conn.on('open',async()=>{
       roomPin=getHostPin();
@@ -552,6 +575,7 @@ function doConnect(code){
       else onConnected();
     } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
     else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
+    else if(d.type==='room-full'){setDot('error');setStatus('Room is full — try a different room');document.getElementById('join-btn').disabled=false;}
     else await handleIncoming(d);
   });
   conn.on('close',()=>{cryptoKey=null;scheduleReconnect();});
@@ -587,7 +611,8 @@ function onDrop(e){e.preventDefault();document.getElementById('dropzone').classL
 function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
 function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
 function removeFile(i){selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
-function renderSendList(){document.getElementById('room-send-list').innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('')}
+function deleteSentFile(i){const f=sentFiles[i];if(!f)return;sentFiles.splice(i,1);renderSendList();if(conn&&conn.open)conn.send({type:'del',name:f.name,size:f.size});}
+function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const icon=isImg?`<img src="${URL.createObjectURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${f.name}">${f.name}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`).join('')}
 function updateSendBtn(){const keyReady=!encryptionEnabled||!!cryptoKey;const ready=conn&&keyReady&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&encryptionEnabled&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
@@ -634,6 +659,8 @@ async function sendOneFile(file,idx){
   const totalChunks=Math.ceil(file.size/CHUNK)||1;
   if(!conn||!conn.open||transferCancelled)return;
   const startChunk=currentSendProgress>0?Math.floor(currentSendProgress*totalChunks/100):0;
+  if(!sentFiles.some(s=>s.name===file.name&&s.size===file.size))sentFiles.push(file);
+  renderSendList();
   conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks,startChunk});
   let batchCount=0;
   for(let sent=startChunk;sent<totalChunks;sent++){
@@ -698,7 +725,22 @@ async function handleIncoming(d){
     const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
     recvQueue.push({i:d.i,buf,byteLength:buf.byteLength});
     if(!recvProcessing)processRecvQueue();
+  }else if(d.type==='del'){
+    deleteReceivedFile(d.name,d.size);
   }
+}
+
+function deleteReceivedFile(name,size){
+  const list=document.getElementById('room-recv-list');
+  const items=list.querySelectorAll('.recv-item');
+  items.forEach(item=>{
+    const nameEl=item.querySelector('.ri-name');
+    if(nameEl&&nameEl.textContent===name&&nameEl.dataset.size===String(size)){
+      item.style.animation='slideOut .3s ease';
+      setTimeout(()=>item.remove(),300);
+    }
+  });
+  if(recvMeta[name]){delete recvMeta[name];delete recvBuffers[name];}
 }
 
 function updateRecvSpeed(){
@@ -754,7 +796,7 @@ function assembleFile(name){
   if(mime.startsWith('image/'))preview=`<img src="${url}" class="recv-preview" alt="${name}">`;
   else if(mime.startsWith('video/'))preview=`<video src="${url}" class="recv-preview" controls playsinline></video>`;
   else if(mime.startsWith('audio/'))preview=`<audio src="${url}" class="recv-audio" controls></audio>`;
-  div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${name}">${name}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${name}">Save</a></div>`;
+  div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${name}" data-size="${meta.size}">${name}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${name}">Save</a></div>`;
   document.getElementById('room-recv-list').appendChild(div);
   if(!mime.startsWith('image/')&&!mime.startsWith('video/')&&!mime.startsWith('audio/')){
     const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
