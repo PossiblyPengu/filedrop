@@ -145,7 +145,10 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .toggle-switch input:checked+.toggle-track{background:var(--accent)}
 .toggle-track::after{content:'';position:absolute;width:18px;height:18px;top:3px;left:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .toggle-switch input:checked+.toggle-track::after{transform:translateX(20px)}
-.pin-wrap input[type=password]{width:3rem;padding:.5rem;text-align:center;font-size:1.2rem;letter-spacing:.2em}
+.pin-wrap{display:flex;gap:.5rem;justify-content:center}
+.pin-wrap input{width:3.5rem;height:3.5rem;padding:0;text-align:center;font-size:1.5rem;font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);-webkit-appearance:none;-moz-appearance:none;appearance:none}
+.pin-wrap input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 15px var(--accent-glow)}
+.pin-wrap input::-webkit-outer-spin-button,.pin-wrap input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .retry-badge{font-size:10px;color:var(--muted);background:rgba(255,77,106,.1);border:1px solid var(--red-dim);border-radius:4px;padding:.1rem .4rem;margin-left:.5rem}
 .recv-item-col{flex-direction:column;align-items:stretch;gap:.6rem}
 .recv-preview{width:100%;max-height:260px;object-fit:contain;border-radius:8px;background:#000;display:block}
@@ -276,10 +279,10 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
       </div>
       <span class="label">Room Password (Optional)</span>
       <div class="pin-wrap">
-        <input type="password" id="host-pin1" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="host-pin2" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="host-pin3" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="host-pin4" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        <input type="tel" id="host-pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
+        <input type="tel" id="host-pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
+        <input type="tel" id="host-pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
+        <input type="tel" id="host-pin4" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
       </div>
     </div>
 
@@ -287,10 +290,10 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
       <div class="divider"></div>
       <span class="label">Room Password Required</span>
       <div class="pin-wrap">
-        <input type="password" id="guest-pin1" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="guest-pin2" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="guest-pin3" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&this.nextElementSibling)this.nextElementSibling.focus()">
-        <input type="password" id="guest-pin4" maxlength="1" placeholder="-" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value.length===1)submitPin()">
+        <input type="tel" id="guest-pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
+        <input type="tel" id="guest-pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
+        <input type="tel" id="guest-pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
+        <input type="tel" id="guest-pin4" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
       </div>
     </div>
 
@@ -325,6 +328,7 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
     <div class="divider"></div>
     <span class="label">Received Files</span>
     <div id="room-recv-progress" class="progress-section hidden">
+      <div class="speed-info"><span id="recv-speed-val">0 B/s</span> &middot; <span id="recv-eta-val">calculating&hellip;</span></div>
       <div id="room-recv-items"></div>
     </div>
     <div class="file-list" id="room-recv-list">
@@ -353,6 +357,7 @@ let peer=null,conn=null,isHost=false;
 let selectedFiles=[],recvBuffers={},recvMeta={};
 let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
+let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
 let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
@@ -397,11 +402,15 @@ function getHostPin(){const v=id=>document.getElementById(id).value;const p=v('h
 function clearGuestPin(){['guest-pin1','guest-pin2','guest-pin3','guest-pin4'].forEach(id=>document.getElementById(id).value='');document.getElementById('guest-pin1').focus()}
 function submitPin(){const v=id=>document.getElementById(id).value;const p=v('guest-pin1')+v('guest-pin2')+v('guest-pin3')+v('guest-pin4');if(p.length===4&&conn)conn.send({type:'pin',pin:p})}
 
+function onPinKey(e,el){if(e.key==='Backspace'&&!el.value){const prev=el.previousElementSibling;if(prev&&prev.tagName==='INPUT'){prev.focus();prev.select();}}}
+function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').slice(0,1);if(el.value){const next=el.nextElementSibling;if(next&&next.tagName==='INPUT'){next.focus();}else if(isGuest&&el.id==='guest-pin4')submitPin();}}
+
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
   conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;encryptionEnabled=true;
   selectedFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
   sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
+  recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
   currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
   show('view-home');hide('view-join');hide('view-room');hide('camera-btn');
   hide('room-pin-setup');hide('room-pin-entry');
@@ -631,16 +640,27 @@ function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);co
 
 async function handleIncoming(d){
   if(d.type==='meta'){
-    recvMeta[d.name]={...d,received:0,lastPct:0};recvBuffers[d.name]=new Array(d.totalChunks);
+    if(!recvStartTime){recvStartTime=Date.now();recvTotalBytes+=d.size;}
+    if(!recvSpeedInterval)recvSpeedInterval=setInterval(updateRecvSpeed,500);
+    recvMeta[d.name]={...d,received:0,lastPct:0,bytesReceived:0};recvBuffers[d.name]=new Array(d.totalChunks);
     show('room-recv-progress');
     const k=safeKey(d.name);
     document.getElementById('room-recv-items').innerHTML+=`<div class="prog-item"><div class="prog-header"><span class="prog-name">${d.name}</span><span class="prog-pct" id="rpct_${k}">0%</span></div><div class="prog-bar"><div class="prog-fill" id="rfill_${k}" style="width:0%"></div></div></div>`;
     const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
   }else if(d.type==='b'&&!pinPending){
     const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
-    recvQueue.push({i:d.i,buf});
+    recvQueue.push({i:d.i,buf,byteLength:buf.byteLength});
     if(!recvProcessing)processRecvQueue();
   }
+}
+
+function updateRecvSpeed(){
+  const elapsed=(Date.now()-recvStartTime)/1000;if(elapsed<0.5)return;
+  const speed=recvBytesReceived/elapsed;const remaining=(recvTotalBytes-recvBytesReceived)/Math.max(speed,1);
+  const speedEl=document.getElementById('recv-speed-val');const etaEl=document.getElementById('recv-eta-val');
+  if(speedEl)speedEl.textContent=fmtSize(speed)+'/s';
+  const m=Math.floor(remaining/60),s=Math.floor(remaining%60);
+  if(etaEl)etaEl.textContent=remaining>0?`${m}:${s.toString().padStart(2,'0')} remaining`:'finishing...';
 }
 
 async function processRecvQueue(){
@@ -655,6 +675,8 @@ async function processRecvQueue(){
         if(encryptionEnabled&&cryptoKey){data=await decryptChunk(item.buf,cryptoKey);}
         else{data=item.buf;}
         recvBuffers[meta.name][item.i]=data;
+        meta.bytesReceived+=item.byteLength||0;
+        recvBytesReceived+=item.byteLength||0;
       }catch(e){console.error('Decrypt error',e);}
     }));
     meta.received+=batch.length;
@@ -691,6 +713,12 @@ function assembleFile(name){
     const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
   }
   delete recvBuffers[name];delete recvMeta[name];
+  const remaining=Object.values(recvMeta).filter(m=>m.received<m.totalChunks).length;
+  if(remaining===0){
+    if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
+    document.getElementById('recv-speed-val').textContent='0 B/s';
+    document.getElementById('recv-eta-val').textContent='done';
+  }
 }
 
 function openCamera(){document.getElementById('camera-input').click()}
