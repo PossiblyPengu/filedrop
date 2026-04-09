@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -151,6 +152,14 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 .recv-audio{width:100%;margin-top:.25rem}
 .recv-info{display:flex;align-items:center;gap:.6rem;font-size:13px}
 .camera-btn{position:fixed;bottom:calc(1.5rem + var(--safe-bottom));right:1.5rem;width:56px;height:56px;border-radius:50%;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,217,255,.2);transition:all .2s;z-index:50;display:flex;align-items:center;justify-content:center}
+.qr-scanner-modal{position:fixed;inset:0;background:rgba(8,9,12,.95);backdrop-filter:blur(12px);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity .3s}
+.qr-scanner-modal.active{opacity:1;pointer-events:auto}
+.qr-scanner-title{font-family:var(--sans);font-size:1.25rem;font-weight:700;margin-bottom:1rem;color:#fff}
+.qr-scanner-wrap{width:100%;max-width:400px;aspect-ratio:1;background:#000;border-radius:16px;overflow:hidden;border:2px solid var(--accent);position:relative}
+.qr-scanner-close{position:absolute;top:1rem;right:1rem;background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
+.qr-scanner-close:active{background:var(--accent-dim)}
+#qr-reader video{border-radius:12px}
+.scan-hint{font-size:12px;color:var(--muted);margin-top:1rem;text-align:center}
 .camera-btn:active{transform:scale(.9)}
 .camera-btn:hover{box-shadow:0 6px 30px rgba(0,217,255,.3);transform:translateY(-2px)}
 @media(min-width:800px){.camera-btn{display:none}}
@@ -216,6 +225,9 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
       onkeydown="if(event.key==='Enter')joinRoom()">
     <div class="mt-2">
       <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">Join Room</button>
+    </div>
+    <div class="mt-2" style="text-align:center">
+      <button class="btn btn-secondary" onclick="openQRScanner()">&#128247; Scan QR Code</button>
     </div>
     <div class="status">
       <div class="dot" id="join-dot"></div>
@@ -311,6 +323,13 @@ input[type=password]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px
 
   <div class="footer">WebRTC peer-to-peer &middot; AES-256-GCM E2EE &middot; Files never touch servers</div>
 </div>
+<!-- QR Scanner Modal -->
+<div class="qr-scanner-modal hidden" id="qr-scanner-modal">
+  <button class="qr-scanner-close" onclick="closeQRScanner()">&#10005;</button>
+  <div class="qr-scanner-title">Scan Room QR Code</div>
+  <div class="qr-scanner-wrap" id="qr-reader"></div>
+  <div class="scan-hint">Point your camera at a FileDrop room QR code</div>
+</div>
 <button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
 <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
 <script>
@@ -323,6 +342,7 @@ let cryptoKey=null,roomPin=null,pinPending=false,encryptionEnabled=true;
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
 let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=3,RETRY_DELAY=500,MAX_RECONNECT=5;
+let qrScanner=null;
 
 function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('')}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
@@ -593,6 +613,59 @@ function assembleFile(name){
 }
 
 function openCamera(){document.getElementById('camera-input').click()}
+
+function openQRScanner(){
+  const modal=document.getElementById('qr-scanner-modal');
+  modal.classList.remove('hidden');
+  setTimeout(()=>modal.classList.add('active'),10);
+  if(!qrScanner){
+    qrScanner=new Html5Qrcode('qr-reader');
+  }
+  qrScanner.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:{width:250,height:250}},
+    (decodedText)=>{
+      const code=extractRoomCode(decodedText);
+      if(code){
+        closeQRScanner();
+        document.getElementById('join-code-input').value=code;
+        joinRoom(code);
+      }
+    },
+    ()=>{}
+  ).catch(()=>{
+    qrScanner.start(
+      {facingMode:'user'},
+      {fps:10,qrbox:{width:250,height:250}},
+      (decodedText)=>{
+        const code=extractRoomCode(decodedText);
+        if(code){
+          closeQRScanner();
+          document.getElementById('join-code-input').value=code;
+          joinRoom(code);
+        }
+      },
+      ()=>{}
+    ).catch(()=>{setStatus('Camera access denied or unavailable');});
+  });
+}
+
+function closeQRScanner(){
+  const modal=document.getElementById('qr-scanner-modal');
+  modal.classList.remove('active');
+  setTimeout(()=>modal.classList.add('hidden'),300);
+  if(qrScanner){
+    qrScanner.stop().catch(()=>{});
+  }
+}
+
+function extractRoomCode(text){
+  const match=text.match(/room=([A-Z0-9]{6})/i);
+  if(match)return match[1].toUpperCase();
+  const clean=text.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(clean.length===6)return clean;
+  return null;
+}
 function onCameraCapture(e){if(e.target.files&&e.target.files[0]){const f=e.target.files[0];const ext=f.type.startsWith('video')?'.mp4':'.jpg';const named=new File([f],'camera_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+ext,{type:f.type});addFiles([named]);}e.target.value=''}
 
 window.addEventListener('dragenter',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.add('active')});
