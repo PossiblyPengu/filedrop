@@ -66,7 +66,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .btn-back::before{content:'\2190';font-size:1.2rem;color:var(--accent)}
 .btn-back:active{background:var(--accent-dim);border-color:var(--accent);color:var(--text);transform:scale(.96)}
 .btn-back:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
-.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch}
+.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .3s ease,gap .4s ease;max-height:600px;opacity:1;overflow:hidden}
+.share-grid.collapsed{max-height:0;opacity:0;gap:0}
 @media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
 .share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
 .room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
@@ -548,6 +549,7 @@ function goHome(){
   document.getElementById('room-code-display').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
   document.getElementById('room-qr-container').innerHTML='';
   document.getElementById('view-room').classList.remove('connected-border');
+  const sg2=document.getElementById('room-share-grid');sg2.classList.remove('collapsed');sg2.classList.add('hidden');
   ['host-pin1','host-pin2','host-pin3','host-pin4','guest-pin1','guest-pin2','guest-pin3','guest-pin4'].forEach(id=>document.getElementById(id).value='');
   history.replaceState({},'',window.location.pathname);
 }
@@ -559,7 +561,7 @@ function enterRoom(code){
     document.getElementById('room-share-grid').classList.remove('hidden');
     document.getElementById('room-label').textContent='Your Room';
   }else{
-    document.getElementById('room-share-grid').classList.add('hidden');
+    const sg=document.getElementById('room-share-grid');sg.classList.add('hidden');sg.classList.remove('collapsed');
     document.getElementById('room-label').textContent='Joining Room';
   }
   hide('view-home');hide('view-join');show('view-room');
@@ -574,6 +576,7 @@ function onConnected(){
   closeEnlargedQR();
   requestWakeLock();
   buzz(50);
+  document.getElementById('room-share-grid').classList.add('collapsed');
   if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
 
@@ -658,6 +661,7 @@ function createRoom(){
       localECDHKeyPair=null;
       releaseWakeLock();
       updateSendBtn();
+      document.getElementById('room-share-grid').classList.remove('collapsed');
     });
     conn.on('error',()=>{
       setDot('error');
