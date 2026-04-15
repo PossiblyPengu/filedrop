@@ -458,7 +458,7 @@ function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`
 function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
 function escapeHtml(text){const div=document.createElement('div');div.textContent=text;return div.innerHTML;}
-function roomURL(code){const u=new URL(window.location.href);u.search='';u.hash='room='+code;return u.toString()}
+function roomURL(code){const u=new URL(window.location.href);u.hash='';u.search='?room='+code;return u.toString()}
 function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
 function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
 function setDot(s){document.getElementById('room-dot').className='dot '+s}
@@ -587,7 +587,8 @@ function createRoom(){
   show('room-pin-setup');
   setStatus('Initializing\u2026');
   peer=new Peer(code,PEERJS_CFG);
-  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026')});
+  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();});
+  peer.on('disconnected',()=>{if(peer&&!peer.destroyed){peer.reconnect();}});
   peer.on('connection',async c=>{
     if(conn&&conn.open){
       try{c.send({type:'room-full'});c.close();}catch(e){}
@@ -1053,6 +1054,10 @@ window.addEventListener('load',()=>{
   }
   const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
   if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
+});
+window.addEventListener('hashchange',()=>{
+  const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
+  if(room&&/^[A-Z0-9]{6}$/i.test(room)&&!conn){joinRoom(room.toUpperCase().slice(0,6));}
 });
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 
