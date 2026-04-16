@@ -2252,8 +2252,9 @@
       }
       function roomURL(code) {
         const u = new URL(window.location.href);
+        u.hash = "";
         u.search = "";
-        u.hash = "room=" + code;
+        u.searchParams.set("room", String(code).toUpperCase().slice(0, 6));
         return u.toString();
       }
       function show(id, animate = false) {
