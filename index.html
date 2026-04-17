@@ -328,6 +328,15 @@
         margin-bottom: 0.5rem;
         display: block;
       }
+      .label-send-tier {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.85;
+        margin: 0.65rem 0 0.35rem;
+        display: block;
+      }
       .btn-back {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -1980,7 +1989,9 @@
             Tap to pick files<br /><span>or drag &amp; drop</span>
           </div>
         </div>
+        <span class="label-send-tier">Unsent</span>
         <div class="file-list" id="room-send-list"></div>
+        <span class="label-send-tier">Sent</span>
         <div class="file-list" id="room-sent-list"></div>
         <div id="room-send-progress" class="xfer-section hidden">
           <div class="xfer-header">
@@ -2244,6 +2255,12 @@
       }
       function safeKey(n) {
         return n.replace(/[^a-z0-9]/gi, "_");
+      }
+      function sendProgPctId(file) {
+        return "spct_" + safeKey(file.name) + "_" + file.size;
+      }
+      function sendProgRetryId(file) {
+        return "sretry_" + safeKey(file.name) + "_" + file.size;
       }
       function escapeHtml(text) {
         const div = document.createElement("div");
@@ -2862,12 +2879,36 @@
           .slice(pendingSendIdx)
           .reduce((a, f) => a + f.size, 0);
         const interval = setInterval(updateSpeed, 500);
-        for (let i = pendingSendIdx; i < selectedFiles.length; i++) {
+        let i = pendingSendIdx;
+        while (i < selectedFiles.length) {
+          if (transferCancelled) break;
           pendingSendIdx = i;
-          await sendOneFile(selectedFiles[i], i);
+          currentSendIdx = i;
+          currentSendProgress = 0;
+          const ok = await sendOneFile(selectedFiles[i]);
+          if (transferCancelled) break;
+          if (ok) {
+            const file = selectedFiles[i];
+            if (
+              !sentFiles.some(
+                (s) => s.name === file.name && s.size === file.size,
+              )
+            )
+              sentFiles.push(file);
+            const k = file.name + file.size;
+            if (sendThumbURLs.has(k)) {
+              URL.revokeObjectURL(sendThumbURLs.get(k));
+              sendThumbURLs.delete(k);
+            }
+            selectedFiles.splice(i, 1);
+            pendingSendIdx = Math.min(i, selectedFiles.length);
+            renderSendList();
+            continue;
+          }
+          i++;
         }
         clearInterval(interval);
-        pendingSendIdx = selectedFiles.length;
+        if (!transferCancelled) pendingSendIdx = selectedFiles.length;
         document.getElementById("speed-val").textContent = "0 B/s";
         document.getElementById("eta-val").textContent = "done";
         btn.textContent = "\u2713 All Sent";
@@ -2890,6 +2931,31 @@
         addFiles([...e.target.files]);
         e.target.value = "";
       }
+      function fileQueueKey(f) {
+        return f.name + "\0" + f.size;
+      }
+      function dedupeSelectedFiles() {
+        if (selectedFiles.length < 2) return;
+        const seen = new Set();
+        const kept = [];
+        let removedBeforePending = 0;
+        for (let j = 0; j < selectedFiles.length; j++) {
+          const f = selectedFiles[j];
+          const k = fileQueueKey(f);
+          if (seen.has(k)) {
+            if (j < pendingSendIdx) removedBeforePending++;
+            continue;
+          }
+          seen.add(k);
+          kept.push(f);
+        }
+        if (kept.length === selectedFiles.length) return;
+        selectedFiles = kept;
+        pendingSendIdx = Math.max(
+          0,
+          Math.min(pendingSendIdx - removedBeforePending, selectedFiles.length),
+        );
+      }
       function addFiles(files) {
         files.forEach((f) => {
           if (
@@ -2897,17 +2963,21 @@
           )
             selectedFiles.push(f);
         });
+        dedupeSelectedFiles();
         renderSendList();
         updateSendBtn();
       }
       function removeFile(i) {
         const f = selectedFiles[i];
+        if (!f) return;
         const k = f.name + f.size;
         if (sendThumbURLs.has(k)) {
           URL.revokeObjectURL(sendThumbURLs.get(k));
           sendThumbURLs.delete(k);
         }
         selectedFiles.splice(i, 1);
+        if (i < pendingSendIdx) pendingSendIdx--;
+        pendingSendIdx = Math.min(pendingSendIdx, selectedFiles.length);
         renderSendList();
         updateSendBtn();
       }
@@ -2915,18 +2985,10 @@
         const f = sentFiles[i];
         if (!f) return;
         sentFiles.splice(i, 1);
-        const si = selectedFiles.findIndex(
-          (x) => x.name === f.name && x.size === f.size,
-        );
-        if (si !== -1) {
-          const k = f.name + f.size;
-          if (sendThumbURLs.has(k)) {
-            URL.revokeObjectURL(sendThumbURLs.get(k));
-            sendThumbURLs.delete(k);
-          }
-          selectedFiles.splice(si, 1);
-          if (si < pendingSendIdx) pendingSendIdx--;
-          pendingSendIdx = Math.min(pendingSendIdx, selectedFiles.length);
+        const k = f.name + f.size;
+        if (sendThumbURLs.has(k)) {
+          URL.revokeObjectURL(sendThumbURLs.get(k));
+          sendThumbURLs.delete(k);
         }
         renderSendList();
         updateSendBtn();
@@ -2939,6 +3001,7 @@
         return sendThumbURLs.get(k);
       }
       function renderSendList() {
+        dedupeSelectedFiles();
         const sendWrap = document.getElementById("room-send-list");
         const sentWrap = document.getElementById("room-sent-list");
         sendWrap.innerHTML = selectedFiles
@@ -3007,17 +3070,40 @@
         const interval = setInterval(updateSpeed, 500);
         const wrap = document.getElementById("room-progress-items");
         wrap.innerHTML = "";
-        selectedFiles.forEach((f, i) => {
+        selectedFiles.forEach((f) => {
           const safeName = escapeHtml(f.name);
-          wrap.innerHTML += `<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div>`;
+          const pid = sendProgPctId(f);
+          const rid = sendProgRetryId(f);
+          wrap.innerHTML += `<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="${pid}">0%</span><span id="${rid}" class="retry-badge hidden"></span></div>`;
         });
         pendingSendIdx = 0;
-        for (let i = 0; i < selectedFiles.length; i++) {
+        let i = 0;
+        while (i < selectedFiles.length) {
           if (transferCancelled) break;
           pendingSendIdx = i;
           currentSendIdx = i;
           currentSendProgress = 0;
-          await sendOneFile(selectedFiles[i], i);
+          const ok = await sendOneFile(selectedFiles[i]);
+          if (transferCancelled) break;
+          if (ok) {
+            const file = selectedFiles[i];
+            if (
+              !sentFiles.some(
+                (s) => s.name === file.name && s.size === file.size,
+              )
+            )
+              sentFiles.push(file);
+            const k = file.name + file.size;
+            if (sendThumbURLs.has(k)) {
+              URL.revokeObjectURL(sendThumbURLs.get(k));
+              sendThumbURLs.delete(k);
+            }
+            selectedFiles.splice(i, 1);
+            pendingSendIdx = Math.min(i, selectedFiles.length);
+            renderSendList();
+            continue;
+          }
+          i++;
         }
         if (!transferCancelled) pendingSendIdx = selectedFiles.length;
         clearInterval(interval);
@@ -3050,18 +3136,13 @@
         }
       }
 
-      async function sendOneFile(file, idx) {
+      async function sendOneFile(file) {
         const totalChunks = Math.ceil(file.size / CHUNK) || 1;
-        if (!conn || !conn.open || transferCancelled) return;
+        if (!conn || !conn.open || transferCancelled) return false;
         const startChunk =
           currentSendProgress > 0
             ? Math.floor((currentSendProgress * totalChunks) / 100)
             : 0;
-        if (
-          !sentFiles.some((s) => s.name === file.name && s.size === file.size)
-        )
-          sentFiles.push(file);
-        renderSendList();
         conn.send({
           type: "meta",
           name: file.name,
@@ -3072,10 +3153,10 @@
         });
         let batchCount = 0;
         for (let sent = startChunk; sent < totalChunks; sent++) {
-          if (transferCancelled) return;
+          if (transferCancelled) return false;
           while (transferPaused && conn && conn.open && !transferCancelled)
             await new Promise((r) => setTimeout(r, 100));
-          if (transferCancelled || !conn || !conn.open) return;
+          if (transferCancelled || !conn || !conn.open) return false;
           const start = sent * CHUNK;
           const chunkBuf = await file
             .slice(start, Math.min(start + CHUNK, file.size))
@@ -3084,7 +3165,7 @@
           let retries = 0;
           while (true) {
             try {
-              if (!conn || !conn.open || transferCancelled) return;
+              if (!conn || !conn.open || transferCancelled) return false;
               if (batchCount === 0) await waitForBuffer();
               batchCount = (batchCount + 1) % CHUNKS_PER_BATCH;
               let d;
@@ -3093,13 +3174,13 @@
               currentSendProgress = Math.round(
                 ((sent + 1) / totalChunks) * 100,
               );
-              updateProg(idx, currentSendProgress, sent + 1 === totalChunks);
+              updateProg(file, currentSendProgress);
               break;
             } catch (e) {
-              if (transferCancelled || !conn || !conn.open) return;
+              if (transferCancelled || !conn || !conn.open) return false;
               retries++;
-              if (retries > MAX_RETRIES) return;
-              const badge = document.getElementById("retry" + idx);
+              if (retries > MAX_RETRIES) return false;
+              const badge = document.getElementById(sendProgRetryId(file));
               if (badge) {
                 badge.textContent = "retry " + retries;
                 badge.classList.remove("hidden");
@@ -3113,6 +3194,7 @@
           if (sent % 16 === 0) await yieldControl();
         }
         currentSendProgress = 0;
+        return true;
       }
 
       function togglePause() {
@@ -3131,13 +3213,8 @@
         if (pauseBtn) pauseBtn.textContent = "Pause";
       }
 
-      function updateProg(idx, pct, done) {
-        const f = document.getElementById("fill" + idx);
-        const l = document.getElementById("pct" + idx);
-        if (f) {
-          f.style.width = pct + "%";
-          if (done) f.classList.add("done");
-        }
+      function updateProg(file, pct) {
+        const l = document.getElementById(sendProgPctId(file));
         if (l) l.textContent = pct + "%";
       }
 
