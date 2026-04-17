@@ -695,19 +695,27 @@ function joinRoom(autoCode){
   setStatus('Connecting\u2026');setDot('waiting');
   if(peer){try{peer.destroy()}catch(e){}}
   peer=new Peer(PEERJS_CFG);
-  let peerReady=false;
-  peer.on('open',()=>{peerReady=true;doConnect(code);});
+  let peerReady=false,peerUnavailableRetries=0;
+  peer.on('open',()=>{peerReady=true;const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);const delay=isIOS?800:100;setTimeout(()=>doConnect(code),delay);});
   peer.on('disconnected',()=>{if(peer&&!peer.destroyed)peer.reconnect();});
   peer.on('close',()=>{setStatus('Connection lost');});
-  peer.on('error',e=>{setDot('error');setStatus(friendlyError(e.type))});
+  peer.on('error',e=>{
+    if(e.type==='peer-unavailable'&&peerUnavailableRetries<3){
+      peerUnavailableRetries++;
+      setStatus(`Host not ready\u2014retrying ${peerUnavailableRetries}/3\u2026`);
+      setTimeout(()=>doConnect(code),1500);
+    }else{
+      setDot('error');setStatus(friendlyError(e.type));
+    }
+  });
   setTimeout(()=>{if(!peerReady&&!conn){setStatus('Connection stalled\u2014retrying\u2026');recreatePeerIfNeeded().then(()=>{if(peer&&peer.open)doConnect(code);});}},6000);
 }
 
 function doConnect(code){
   if(!peer||!peer.open){setStatus('Waiting for server\u2026');return;}
-  conn=peer.connect(code,{reliable:true});
-  const slowTimer=setTimeout(()=>{if(conn&&!conn.open)setStatus('Still connecting\u2026 (routing via relay)');},4000);
-  const failTimer=setTimeout(()=>{if(conn&&!conn.open){conn.close();setStatus('Host unreachable\u2014retrying\u2026');scheduleReconnect();}},12000);
+  conn=peer.connect(code,{reliable:true,metadata:{ts:Date.now()}});
+  const slowTimer=setTimeout(()=>{if(conn&&!conn.open)setStatus('Still connecting\u2026 (routing via relay)');},3000);
+  const failTimer=setTimeout(()=>{if(conn&&!conn.open){conn.close();setStatus('Host unreachable\u2014retrying\u2026');scheduleReconnect();}},10000);
   conn.on('open',()=>{clearTimeout(slowTimer);clearTimeout(failTimer);setStatus('Securing channel\u2026');});
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
