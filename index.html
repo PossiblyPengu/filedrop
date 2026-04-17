@@ -21,7 +21,6 @@
 <meta name="apple-mobile-web-app-title" content="FileDrop">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>FileDrop</title>
 <!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
 <style>@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('Menlo'),local('Monaco'),local('Consolas'),local('Courier New');font-weight:400 700}@font-face{font-family:'Syne';src:local('Syne'),local('Inter'),local('Segoe UI'),local('Roboto'),local('Helvetica'),local('Arial');font-weight:700 800}</style>
@@ -308,7 +307,7 @@ input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgb
     </div>
   </div>
 
-  <!-- ROOM bidirectional host & guest both use this -->
+  <!-- ROOM (bidirectional — host & guest both use this) -->
   <div id="view-room" class="card card-accent hidden">
     <button class="btn-back" onclick="goHome()">Back</button>
 
@@ -434,19 +433,13 @@ const CHUNK=1048576;
 const MAX_BUFFER=16*1024*1024;
 const CHUNKS_PER_BATCH=4;
 const RECV_BATCH_SIZE=8;
-const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[
-  {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun.cloudflare.com:3478'},
-  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turns:openrelay.metered.ca:443'],username:'openrelayproject',credential:'openrelayproject'}
-]}};
+const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]}};
 let peer=null,conn=null,isHost=false;
 let selectedFiles=[],sentFiles=[],recvBuffers={},recvMeta={};
 let cryptoKey=null,roomPin=null,pinPending=false;
 let localECDHKeyPair=null,pinFailCount=0,receivedBlobURLs=[],sendThumbURLs=new Map();
 let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
-let smoothSendSpeed=0,lastSendSample=0,lastSendBytes=0;
 let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
-let smoothRecvSpeed=0,lastRecvSample=0,lastRecvBytes=0;
 let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,toastTimer=null,pendingSendIdx=0;
 const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
@@ -464,9 +457,8 @@ function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(
 function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`${m}:${Math.floor(s%60).toString().padStart(2,'0')} remaining`}
 function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
 function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
-function friendlyError(type){if(type==='peer-unavailable')return'Room not found \u2014 host may have closed their session';if(type==='network')return'Lost connection to server \u2014 check your internet';if(type==='server-error')return'Server unreachable \u2014 try again shortly';if(type==='socket-error'||type==='socket-closed')return'Connection interrupted';if(type==='webrtc')return'WebRTC error \u2014 your network may be blocking connections';return'Error: '+type;}
 function escapeHtml(text){const div=document.createElement('div');div.textContent=text;return div.innerHTML;}
-function roomURL(code){const u=new URL(window.location.href);u.hash='';u.search='?room='+code;return u.toString()}
+function roomURL(code){const u=new URL(window.location.href);u.search='';u.hash='room='+code;return u.toString()}
 function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
 function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
 function setDot(s){document.getElementById('room-dot').className='dot '+s}
@@ -538,9 +530,9 @@ function goHome(){
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
   selectedFiles=[];sentFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
   transferCancelled=false;transferPaused=false;currentSendIdx=0;currentSendProgress=0;
-  sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;smoothSendSpeed=0;lastSendSample=0;lastSendBytes=0;
-  recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;smoothRecvSpeed=0;lastRecvSample=0;lastRecvBytes=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
-  currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);document.title='FileDrop';
+  sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
+  recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
+  currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
   show('view-home');hide('view-join');hide('view-room');hide('camera-btn');
   hide('room-pin-setup');hide('room-pin-entry');
   document.getElementById('room-send-list').innerHTML='';
@@ -584,7 +576,6 @@ function onConnected(){
   closeEnlargedQR();
   requestWakeLock();
   buzz(50);
-  if('Notification' in window&&Notification.permission==='default')Notification.requestPermission();
   document.getElementById('room-share-grid').classList.add('collapsed');
   if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
@@ -596,8 +587,7 @@ function createRoom(){
   show('room-pin-setup');
   setStatus('Initializing\u2026');
   peer=new Peer(code,PEERJS_CFG);
-  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();});
-  peer.on('disconnected',()=>{if(peer&&!peer.destroyed){peer.reconnect();}});
+  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026')});
   peer.on('connection',async c=>{
     if(conn&&conn.open){
       try{c.send({type:'room-full'});c.close();}catch(e){}
@@ -678,7 +668,7 @@ function createRoom(){
       setStatus('Connection error')
     });
   });
-  peer.on('error',e=>{setDot('error');setStatus(friendlyError(e.type))});
+  peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
 }
 
 function showJoin(){hide('view-home');show('view-join');document.getElementById('join-code-input').focus()}
@@ -695,13 +685,12 @@ function joinRoom(autoCode){
   if(peer){try{peer.destroy()}catch(e){}}
   peer=new Peer(PEERJS_CFG);
   peer.on('open',()=>doConnect(code));
-  peer.on('error',e=>{setDot('error');setStatus(friendlyError(e.type))});
+  peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
 }
 
 function doConnect(code){
   conn=peer.connect(code,{reliable:true});
-  const slowTimer=setTimeout(()=>{if(conn&&!conn.open)setStatus('Still connecting\u2026 (routing via relay)');},5000);
-  conn.on('open',()=>{clearTimeout(slowTimer);setStatus('Securing channel\u2026');});
+  conn.on('open',()=>setStatus('Securing channel\u2026'));
   conn.on('data',async d=>{
     if(d.type==='ecdh-init'){
       if(!d.pubKey){setStatus('Host does not support encryption');if(conn)try{conn.close();}catch(_){}return;}
@@ -722,11 +711,9 @@ function scheduleReconnect(){
   if(!currentRoomCode||reconnectAttempts>=MAX_RECONNECT){setDot('error');setStatus('Connection lost');return;}
   reconnectAttempts++;
   const delay=Math.min(1500*reconnectAttempts,8000);
-  setDot('waiting');clearTimeout(reconnectTimer);
-  let secs=Math.ceil(delay/1000);
-  setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
-  const tick=setInterval(()=>{secs--;if(secs>0)setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);else clearInterval(tick);},1000);
-  reconnectTimer=setTimeout(()=>{clearInterval(tick);if(peer&&!peer.destroyed)doConnect(currentRoomCode);},delay);
+  setDot('waiting');setStatus(`Reconnecting\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
+  clearTimeout(reconnectTimer);
+  reconnectTimer=setTimeout(()=>{if(peer&&!peer.destroyed)doConnect(currentRoomCode);},delay);
 }
 
 async function resumeSend(){
@@ -756,16 +743,13 @@ function renderSendList(){const sendWrap=document.getElementById('room-send-list
 function updateSendBtn(){const ready=conn&&!!cryptoKey&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
 
 function updateSpeed(){
-  const now=Date.now();const elapsed=(now-sendStartTime)/1000;if(elapsed<0.5)return;
-  if(lastSendSample>0){const dt=(now-lastSendSample)/1000;if(dt>=0.4){const inst=(sendBytesSent-lastSendBytes)/dt;smoothSendSpeed=smoothSendSpeed>0?smoothSendSpeed*0.6+inst*0.4:inst;lastSendSample=now;lastSendBytes=sendBytesSent;}}else{lastSendSample=now;lastSendBytes=sendBytesSent;}
-  const speed=smoothSendSpeed||sendBytesSent/elapsed;
-  const remaining=(sendTotalBytes-sendBytesSent)/Math.max(speed,1);
+  const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;
+  const speed=sendBytesSent/elapsed;const remaining=(sendTotalBytes-sendBytesSent)/Math.max(speed,1);
   document.getElementById('speed-val').textContent=fmtSize(speed)+'/s';
   document.getElementById('eta-val').textContent=fmtETA(remaining);
   const pct=sendTotalBytes>0?Math.min(100,Math.round(sendBytesSent/sendTotalBytes*100)):0;
   const fill=document.getElementById('send-overall-fill');
   if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
-  if(pct>0&&pct<100)document.title='\u2B06 '+pct+'% \u2014 FileDrop';
 }
 
 async function sendFiles(){
@@ -779,7 +763,6 @@ async function sendFiles(){
   if(pauseBtn)pauseBtn.textContent='Pause';
   show('room-send-progress');
   sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
-  smoothSendSpeed=0;lastSendSample=0;lastSendBytes=0;
   const interval=setInterval(updateSpeed,500);
   const wrap=document.getElementById('room-progress-items');wrap.innerHTML='';
   selectedFiles.forEach((f,i)=>{const safeName=escapeHtml(f.name);wrap.innerHTML+=`<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div>`});
@@ -798,10 +781,8 @@ async function sendFiles(){
     const sfc=document.getElementById('send-overall-fill');if(sfc){sfc.style.width='0%';sfc.classList.remove('active');}
   }else{
     document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
-    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');buzz([100,50,100]);showToast('All files sent!');
-    document.title='FileDrop';
+    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');buzz([100,50,100]);
     const sfd=document.getElementById('send-overall-fill');if(sfd){sfd.style.width='100%';sfd.classList.remove('active');setTimeout(()=>{sfd.style.width='0%';},1500);}
-    setTimeout(()=>{if(conn&&conn.open){btn.textContent='Send Files';btn.style.opacity='';btn.classList.remove('success-pulse');updateSendBtn();}},4000);
   }
 }
 
@@ -893,17 +874,14 @@ function deleteReceivedFile(name,size){
 }
 
 function updateRecvSpeed(){
-  const now=Date.now();const elapsed=(now-recvStartTime)/1000;if(elapsed<0.5)return;
-  if(lastRecvSample>0){const dt=(now-lastRecvSample)/1000;if(dt>=0.4){const inst=(recvBytesReceived-lastRecvBytes)/dt;smoothRecvSpeed=smoothRecvSpeed>0?smoothRecvSpeed*0.6+inst*0.4:inst;lastRecvSample=now;lastRecvBytes=recvBytesReceived;}}else{lastRecvSample=now;lastRecvBytes=recvBytesReceived;}
-  const speed=smoothRecvSpeed||recvBytesReceived/elapsed;
-  const remaining=(recvTotalBytes-recvBytesReceived)/Math.max(speed,1);
+  const elapsed=(Date.now()-recvStartTime)/1000;if(elapsed<0.5)return;
+  const speed=recvBytesReceived/elapsed;const remaining=(recvTotalBytes-recvBytesReceived)/Math.max(speed,1);
   const speedEl=document.getElementById('recv-speed-val');const etaEl=document.getElementById('recv-eta-val');
   if(speedEl)speedEl.textContent=fmtSize(speed)+'/s';
   if(etaEl)etaEl.textContent=fmtETA(remaining);
   const pct=recvTotalBytes>0?Math.min(100,Math.round(recvBytesReceived/recvTotalBytes*100)):0;
   const fill=document.getElementById('recv-overall-fill');
   if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
-  if(pct>0&&pct<100)document.title='\u2B07 '+pct+'% \u2014 FileDrop';
 }
 
 async function processRecvQueue(){
@@ -963,9 +941,7 @@ function assembleFile(name){
     document.getElementById('recv-speed-val').textContent='0 B/s';
     document.getElementById('recv-eta-val').textContent='done';
     const rfd=document.getElementById('recv-overall-fill');if(rfd){rfd.style.width='100%';rfd.classList.remove('active');setTimeout(()=>{rfd.style.width='0%';},1500);}
-    document.title='FileDrop';
   }
-  if(document.visibilityState!=='visible'&&Notification.permission==='granted')new Notification('FileDrop',{body:'Received: '+escapeHtml(name),icon:'icon.svg',tag:'filedrop-recv'});
 }
 
 function openCamera(){document.getElementById('camera-input').click()}
@@ -1068,12 +1044,6 @@ window.addEventListener('dragenter',e=>{e.preventDefault();document.getElementBy
 window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('dragleave',e=>{if(e.relatedTarget===null)document.getElementById('drag-overlay').classList.remove('active')});
 window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.remove('active');if(e.dataTransfer.files.length)addFiles([...e.dataTransfer.files])});
-document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape')return;
-  if(!document.getElementById('qr-enlarge-modal').classList.contains('hidden')){closeEnlargedQR();return;}
-  if(!document.getElementById('qr-scanner-modal').classList.contains('hidden')){closeQRScanner();return;}
-  if(!document.getElementById('view-room').classList.contains('hidden')&&!document.getElementById('view-home').classList.contains('hidden')===false)goHome();
-});
 window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){addFiles(files);e.preventDefault();}});
 
 window.addEventListener('load',()=>{
@@ -1084,16 +1054,9 @@ window.addEventListener('load',()=>{
   const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
   if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
 });
-window.addEventListener('hashchange',()=>{
-  const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
-  if(room&&/^[A-Z0-9]{6}$/i.test(room)&&!conn){joinRoom(room.toUpperCase().slice(0,6));}
-});
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 
-window.addEventListener('beforeunload',e=>{
-  const sendActive=sendStartTime>0&&sendBytesSent>0&&sendBytesSent<sendTotalBytes;
-  const recvActive=recvStartTime>0&&recvBytesReceived>0&&recvBytesReceived<recvTotalBytes;
-  if(conn&&conn.open&&(sendActive||recvActive)){e.preventDefault();e.returnValue='';return;}
+window.addEventListener('beforeunload',()=>{
   receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
   if(peer){try{peer.destroy();}catch(e){}}

@@ -1,27 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>FileDrop</title>
-  <script>
-    // Single Page App routing fallback for GitHub Pages
-    // Redirects all 404s to index.html with the original path preserved
-    const path = window.location.pathname;
-    const search = window.location.search;
-    const hash = window.location.hash;
-    
-    // If there's a room code in the URL, preserve it
-    const roomMatch = path.match(/room=([A-Z0-9]{6})/i);
-    if (roomMatch) {
-      const redirectUrl = '/?room=' + roomMatch[1].toUpperCase();
-      window.location.replace(redirectUrl);
-    } else {
-      // Otherwise just go to home
-      window.location.replace('/' + search + hash);
-    }
-  </script>
-</head>
-<body>
-  <p>Redirecting to FileDrop...</p>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>FileDrop</title>
+    <script>
+      // Single Page App routing fallback for GitHub Pages
+      // Redirects all 404s to index.html with the original path preserved
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+
+      // If there's a room code in the URL, preserve it
+      const roomMatch = path.match(/room=([A-Z0-9]{6})/i);
+      if (roomMatch) {
+        const redirectUrl = "/?room=" + roomMatch[1].toUpperCase();
+        window.location.replace(redirectUrl);
+      } else {
+        // Otherwise just go to home
+        window.location.replace("/" + search + hash);
+      }
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to FileDrop...</p>
+  </body>
 </html>
