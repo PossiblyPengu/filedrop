@@ -2915,7 +2915,21 @@
         const f = sentFiles[i];
         if (!f) return;
         sentFiles.splice(i, 1);
+        const si = selectedFiles.findIndex(
+          (x) => x.name === f.name && x.size === f.size,
+        );
+        if (si !== -1) {
+          const k = f.name + f.size;
+          if (sendThumbURLs.has(k)) {
+            URL.revokeObjectURL(sendThumbURLs.get(k));
+            sendThumbURLs.delete(k);
+          }
+          selectedFiles.splice(si, 1);
+          if (si < pendingSendIdx) pendingSendIdx--;
+          pendingSendIdx = Math.min(pendingSendIdx, selectedFiles.length);
+        }
         renderSendList();
+        updateSendBtn();
         if (conn && conn.open)
           conn.send({ type: "del", name: f.name, size: f.size });
       }
