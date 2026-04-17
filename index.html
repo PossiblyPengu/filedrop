@@ -589,16 +589,17 @@ function onConnected(){
   if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
 }
 
-function createRoom(){
+function createRoom(reuseCode){
   isHost=true;
-  const code=randCode();
+  const code=reuseCode||randCode();
+  currentRoomCode=code;
   enterRoom(code);
   show('room-pin-setup');
   setStatus('Initializing\u2026');
   peer=new Peer(code,PEERJS_CFG);
   peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();const ka=setInterval(()=>{if(peer&&peer.open)peer.socket?.send?.(JSON.stringify({type:'ping'}));},20000);peer._keepAlive=ka;});
   peer.on('disconnected',()=>{if(peer&&!peer.destroyed){peer.reconnect();}});
-  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode){setStatus('Reconnecting server\u2026');setTimeout(()=>createRoom(),800);}});
+  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode){setStatus('Reconnecting server\u2026');setTimeout(()=>createRoom(currentRoomCode),800);}});
   peer.on('error',e=>{setDot('error');setStatus(friendlyError(e.type))});
   peer.on('connection',async c=>{
     if(conn&&conn.open){
@@ -741,7 +742,7 @@ function scheduleReconnect(){
   let secs=Math.ceil(delay/1000);
   setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
   const tick=setInterval(()=>{secs--;if(secs>0)setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);else clearInterval(tick);},1000);
-  reconnectTimer=setTimeout(()=>{clearInterval(tick);if(isHost){if(!peer||peer.destroyed)createRoom();}else{recreatePeerIfNeeded().then(()=>doConnect(currentRoomCode));}},delay);
+  reconnectTimer=setTimeout(()=>{clearInterval(tick);if(isHost){if(!peer||peer.destroyed)createRoom(currentRoomCode);}else{recreatePeerIfNeeded().then(()=>doConnect(currentRoomCode));}},delay);
 }
 async function recreatePeerIfNeeded(){if(!peer||peer.destroyed||!peer.open){if(peer)try{peer.destroy();}catch(e){}await new Promise(r=>setTimeout(r,300));peer=new Peer(PEERJS_CFG);await new Promise((res,rej)=>{peer.on('open',res);peer.on('error',rej);setTimeout(()=>rej(new Error('peer open timeout')),5000);}).catch(()=>{});}}
 
