@@ -2,7 +2,7 @@
 
 Peer-to-peer file transfer with end-to-end encryption. No server storage. Direct browser-to-browser transfer using WebRTC.
 
-**Live Demo**: https://yourusername.github.io/filedrop
+**Live Demo**: <https://yourusername.github.io/filedrop>
 
 ## Features
 
@@ -43,10 +43,12 @@ npx serve .
 ## Privacy Notes
 
 FileDrop uses **public infrastructure by default**:
+
 - **PeerJS Server** (0.peerjs.com): Handles signaling only, never sees file content
 - **STUN Server** (Google): Helps establish direct P2P connections
 
 **Privacy considerations**:
+
 - Room codes are visible to the signaling server during connection setup
 - Peers can see each other's IP addresses via WebRTC
 - File content is encrypted with AES-256-GCM when password protection is enabled
@@ -66,12 +68,12 @@ To hide IP addresses completely, add a **TURN server** to the ICE configuration.
 
 ## Security Considerations
 
-| Component | Risk | Mitigation |
-|-----------|------|------------|
-| PeerJS Signaling | Room codes visible to server | Use private PeerJS server |
-| STUN/TURN | IP address exposure | Use authenticated TURN |
-| Encryption | Optional (user can disable) | Enable by default, PIN protects |
-| File Metadata | Names/sizes sent in clear | Could encrypt metadata too |
+| Component        | Risk                         | Mitigation                      |
+| ---------------- | ---------------------------- | ------------------------------- |
+| PeerJS Signaling | Room codes visible to server | Use private PeerJS server       |
+| STUN/TURN        | IP address exposure          | Use authenticated TURN          |
+| Encryption       | Optional (user can disable)  | Enable by default, PIN protects |
+| File Metadata    | Names/sizes sent in clear    | Could encrypt metadata too      |
 
 ## Browser Support
 

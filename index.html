@@ -1,1070 +1,3550 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#08090c">
-<meta name="referrer" content="no-referrer">
-<link rel="preconnect" href="https://0.peerjs.com">
-<link rel="dns-prefetch" href="https://0.peerjs.com">
-<meta name="description" content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers.">
-<meta property="og:type" content="website">
-<meta property="og:title" content="FileDrop">
-<meta property="og:description" content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers.">
-<meta property="og:image" content="preview.svg">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FileDrop">
-<meta name="twitter:description" content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers.">
-<meta name="twitter:image" content="preview.svg">
-<meta name="apple-mobile-web-app-title" content="FileDrop">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.svg">
-<title>FileDrop</title>
-<!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
-<style>@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('Menlo'),local('Monaco'),local('Consolas'),local('Courier New');font-weight:400 700}@font-face{font-family:'Syne';src:local('Syne'),local('Inter'),local('Segoe UI'),local('Roboto'),local('Helvetica'),local('Arial');font-weight:700 800}</style>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com; media-src 'self' blob:; img-src 'self' blob: data:; worker-src 'self' blob:;">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-button,a[href],[role=button]{touch-action:manipulation;-webkit-touch-callout:none}
-:root{
-  --bg:#08090c; --surface:#0f1116; --surface-glass:rgba(15,17,22,.85); --border:#1c1f28; --border2:#252932;
-  --text:#c5d0e5; --muted:#4a5568;
-  --accent:#00d9ff; --accent-dim:rgba(0,217,255,.08); --accent-glow:rgba(0,217,255,.35);
-  --green:#00ff9d; --green-dim:rgba(0,255,157,.1); --green-glow:rgba(0,255,157,.3);
-  --red:#ff4d6a; --red-dim:rgba(255,77,106,.1);
-  --mono:'JetBrains Mono',monospace; --sans:'Syne',sans-serif;
-  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
-  --safe-left:env(safe-area-inset-left,0px); --safe-right:env(safe-area-inset-right,0px);
-}
-html{height:100%}
-body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:15px;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(0,217,255,.08),transparent),linear-gradient(rgba(0,217,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(0,217,255,.015) 1px,transparent 1px);background-size:100% 100%,56px 56px,56px 56px;pointer-events:none;z-index:0}
-#app{position:relative;z-index:1;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(2rem + var(--safe-top)) max(1.25rem,var(--safe-right)) calc(2rem + var(--safe-bottom)) max(1.25rem,var(--safe-left))}
-.header{margin:2rem 0 2.5rem;text-align:center;animation:fadeInDown .6s ease}
-@keyframes fadeInDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
-.logo{font-family:var(--sans);font-size:clamp(2rem,7vw,2.8rem);font-weight:800;letter-spacing:-.03em;color:#fff;background:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.85) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.logo span{background:linear-gradient(135deg,var(--accent) 0%,#00b8e6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none}
-.tagline{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:.5rem}
-.card{background:var(--surface-glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:clamp(1.5rem,5vw,2rem);width:100%;max-width:520px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.03);animation:fadeInUp .5s ease}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.card-accent::after{content:'';position:absolute;top:0;left:5%;right:5%;height:2px;background:linear-gradient(90deg,transparent,var(--accent-glow),var(--accent),var(--accent-glow),transparent);border-radius:2px 2px 0 0;animation:glowPulse 3s ease-in-out infinite}
-@keyframes glowPulse{0%,100%{opacity:.6}50%{opacity:1}}
-.connected-border{border-color:rgba(0,255,157,.4)!important;box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 30px var(--green-glow),inset 0 1px 0 rgba(255,255,255,.03)}
-.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;width:100%;max-width:520px;animation:fadeInUp .5s ease .1s both}
-.mode-btn{background:var(--surface-glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:14px;padding:1.75rem 1.5rem;cursor:pointer;text-align:left;transition:all .25s cubic-bezier(.4,0,.2,1);color:var(--text);font-family:var(--mono);user-select:none;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden}
-.mode-btn::before{content:'';position:absolute;inset:0;background:radial-gradient(300px circle at var(--mouse-x,50%) var(--mouse-y,50%),rgba(0,217,255,.15),transparent 40%);opacity:0;transition:opacity .3s}
-.mode-btn:hover::before{opacity:1}
-.mode-btn:active{background:var(--accent-dim);border-color:var(--accent);transform:scale(.98)}
-@media(hover:hover){.mode-btn:hover{border-color:rgba(0,217,255,.5);background:var(--accent-dim);box-shadow:0 8px 32px rgba(0,0,0,.3),0 0 40px var(--accent-glow);transform:translateY(-3px)}}
-.mode-btn .icon{font-size:1.75rem;margin-bottom:.6rem;display:block}
-.mode-btn .mode-title{font-family:var(--sans);font-size:1.1rem;font-weight:700;color:#fff;display:block}
-.mode-btn .mode-desc{font-size:11px;color:var(--muted);margin-top:.2rem;display:block;line-height:1.4}
-.label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:block}
-.btn-back{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem;min-height:48px;min-width:100px;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.btn-back::before{content:'\2190';font-size:1.2rem;color:var(--accent)}
-.btn-back:active{background:var(--accent-dim);border-color:var(--accent);color:var(--text);transform:scale(.96)}
-.btn-back:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
-.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;align-items:stretch;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .3s ease,gap .4s ease;max-height:600px;opacity:1;overflow:hidden}
-.share-grid.collapsed{max-height:0;opacity:0;gap:0}
-@media(max-width:460px){.share-grid{grid-template-columns:1fr}.qr-wrap{order:-1}}
-.share-grid .room-box{gap:.5rem;padding:1.25rem 1rem}
-.room-box{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.room-code{font-size:clamp(1.8rem,8vw,2.6rem);font-weight:700;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.15);font-family:var(--mono);line-height:1;animation:codeGlow 2s ease-in-out infinite alternate}
-@keyframes codeGlow{from{text-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(0,217,255,.1)}to{text-shadow:0 0 30px var(--accent-glow),0 0 60px rgba(0,217,255,.2)}}
-.room-hint{font-size:10px;color:var(--muted);letter-spacing:.05em}
-.copy-btn{background:linear-gradient(180deg,var(--accent-dim) 0%,rgba(0,217,255,.04) 100%);border:1px solid rgba(0,217,255,.25);border-radius:8px;color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:.6rem 1.25rem;cursor:pointer;transition:all .2s;min-height:42px;margin-top:.25rem;user-select:none;position:relative;overflow:hidden}
-.copy-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,217,255,.1),transparent);transform:translateX(-100%)}
-.copy-btn:hover::before{transform:translateX(100%);transition:transform .5s}
-.copy-btn:active{background:rgba(0,217,255,.15);transform:scale(.96)}
-.share-btn{background:linear-gradient(180deg,var(--surface) 0%,rgba(15,17,22,.5) 100%);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:.6rem 1.25rem;cursor:pointer;transition:all .2s;min-height:42px;user-select:none}
-.share-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text)}
-.share-btn:active{border-color:var(--accent);color:var(--accent);transform:scale(.96)}
-.copy-row{display:flex;gap:.5rem;width:100%}
-.copy-row .copy-btn{flex:1}.copy-row .share-btn{flex:1}
-.qr-wrap{background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.4) 100%);border:1px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-.qr-inner{background:#fff;padding:10px;border-radius:6px;display:inline-block;line-height:0}
-.qr-inner canvas,.qr-inner img{display:block}
-.qr-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:center}
-.status{display:flex;align-items:center;gap:.5rem;font-size:12px;letter-spacing:.05em;color:var(--muted);margin-top:.875rem;min-height:24px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
-.fingerprint{display:flex;align-items:center;gap:.4rem;font-size:10px;color:var(--muted);letter-spacing:.06em;margin-top:.2rem}
-.fp-value{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.18em;font-weight:700}
-.fp-hint{font-size:9px;opacity:.7}
-.dot.init{animation:pulse 1.2s infinite}
-.dot.waiting{background:var(--accent);animation:pulse 1.2s infinite}
-.dot.connected{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);animation:none}
-.dot.error{background:var(--red);animation:none}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
-.divider{height:1px;background:var(--border);margin:1.25rem 0}
-.dropzone{border:2px dashed var(--border2);border-radius:12px;padding:2rem 1.25rem;text-align:center;cursor:pointer;transition:all .25s cubic-bezier(.4,0,.2,1);user-select:none;position:relative;background:linear-gradient(180deg,rgba(15,17,22,.5) 0%,rgba(15,17,22,.3) 100%)}
-.dropzone::before{content:'';position:absolute;inset:-2px;border-radius:14px;padding:2px;background:linear-gradient(135deg,rgba(0,217,255,.3) 0%,transparent 50%,rgba(0,217,255,.1) 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s}
-.dropzone:active,.dropzone.dragover{border-color:var(--accent);background:var(--accent-dim)}
-.dropzone:active::before,.dropzone.dragover::before{opacity:1}
-@media(hover:hover){.dropzone:hover{border-color:rgba(0,217,255,.4);background:var(--accent-dim);transform:translateY(-1px)}}
-@media(hover:hover){.dropzone:hover::before{opacity:.5}}
-.dropzone input{display:none}
-.dz-icon{font-size:1.6rem;display:block;margin-bottom:.5rem}
-.dz-text{font-size:12px;color:var(--muted)}
-.dz-text span{color:var(--accent)}
-.file-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.75rem}
-.file-item{display:flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,rgba(15,17,22,.8) 0%,rgba(15,17,22,.5) 100%);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-size:13px;min-height:52px;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.file-item:hover{border-color:rgba(0,217,255,.2);box-shadow:0 2px 12px rgba(0,217,255,.08)}
-.fi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.fi-size{color:var(--muted);font-size:11px;flex-shrink:0}
-.fi-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;flex-shrink:0;transition:all .2s;font-family:var(--mono);padding:.25rem .5rem;margin:-.25rem -.5rem;min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:6px}
-.fi-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid var(--border)}
-.fi-remove:hover{background:var(--red-dim);color:var(--red)}
-.fi-remove:active{background:var(--red-dim);color:var(--red);transform:scale(.9)}
-.progress-section{margin-top:1.25rem}
-.prog-item{margin-bottom:.875rem}
-.prog-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:.35rem}
-.prog-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78%}
-.prog-pct{color:var(--accent);flex-shrink:0}
-.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
-.prog-fill{height:100%;background:var(--accent);box-shadow:0 0 6px var(--accent-glow);transition:width .1s linear;border-radius:2px}
-.prog-fill.done{background:var(--green);box-shadow:0 0 6px rgba(0,255,136,.3)}
-.xfer-section{margin-top:.75rem}
-.xfer-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.4rem}
-.xfer-speed{font-size:11px;color:var(--muted)}
-.xfer-speed span{color:var(--accent)}
-.xfer-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative}
-.xfer-track-recv{transform:scaleX(-1)}
-.xfer-fill{position:absolute;left:0;top:0;height:100%;width:0%;border-radius:3px;transition:width .15s linear;overflow:hidden}
-.xfer-fill-send{background:var(--green);box-shadow:0 0 6px var(--green-glow)}
-.xfer-fill-recv{background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
-.xfer-fill.active::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:xferSweep 1.8s ease-in-out infinite}
-@keyframes xferSweep{from{left:-40%}to{left:140%}}
-.xfer-file-list{margin-top:.4rem;display:flex;flex-direction:column;gap:.15rem}
-.xfer-file-item{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);gap:.5rem}
-.xfer-file-item .prog-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.xfer-file-item .prog-pct{color:var(--accent);flex-shrink:0}
-.btn{width:100%;padding:1rem 1.5rem;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);min-height:52px;user-select:none;position:relative;overflow:hidden}
-.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:none}
-.btn:active:not(:disabled){transform:scale(.98)}
-.btn:active:not(:disabled)::after{transform:translateX(100%);transition:transform .4s}
-@media(hover:hover){.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-dim);box-shadow:0 4px 20px rgba(0,217,255,.15)}}
-.btn:disabled{opacity:.35;cursor:not-allowed}
-.btn-primary{border-color:var(--accent);color:var(--accent);background:linear-gradient(180deg,var(--accent-dim) 0%,rgba(0,217,255,.04) 100%);box-shadow:0 4px 20px rgba(0,217,255,.1),inset 0 1px 0 rgba(0,217,255,.1)}
-.btn-primary:active:not(:disabled){background:rgba(0,217,255,.15);box-shadow:0 2px 10px rgba(0,217,255,.1),inset 0 1px 0 rgba(0,217,255,.1)}
-.btn-send{border-color:var(--green);color:var(--green);background:linear-gradient(180deg,var(--green-dim) 0%,rgba(0,255,157,.04) 100%);box-shadow:0 4px 20px rgba(0,255,157,.1),inset 0 1px 0 rgba(0,255,157,.1)}
-.btn-send:active:not(:disabled){background:rgba(0,255,157,.15);box-shadow:0 2px 10px rgba(0,255,157,.1),inset 0 1px 0 rgba(0,255,157,.1)}
-input[type=text]{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:10px;padding:1rem;color:var(--text);font-family:var(--mono);font-size:max(16px,1.6rem);letter-spacing:.3em;outline:none;transition:all .2s;text-transform:uppercase;text-align:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
-input[type=text]:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
-.recv-item{display:flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,rgba(0,255,157,.08) 0%,rgba(0,255,157,.03) 100%);border:1px solid rgba(0,255,157,.25);border-radius:8px;padding:.75rem 1rem;font-size:13px;min-height:52px;animation:slidein .4s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 8px rgba(0,255,157,.1)}
-@keyframes slidein{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-.ri-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.ri-size{color:var(--muted);font-size:11px;flex-shrink:0}
-.dl-btn{background:var(--green-dim);border:1px solid rgba(0,255,136,.25);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:.4rem .75rem;cursor:pointer;text-decoration:none;transition:background .2s;flex-shrink:0;min-height:44px;display:flex;align-items:center;touch-action:manipulation}
-.dl-btn:active{background:rgba(0,255,136,.14)}
-.empty{font-size:12px;color:var(--muted);text-align:center;padding:1.25rem 0}
-.footer{margin-top:2.5rem;font-size:11px;color:var(--muted);letter-spacing:.12em;text-align:center;padding-bottom:.5rem;opacity:.7}
-.drag-overlay{position:fixed;inset:0;background:rgba(8,9,12,.95);backdrop-filter:blur(10px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
-.drag-overlay.active{opacity:1;pointer-events:auto}
-.drag-content{text-align:center;animation:float 2s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-.drag-icon{font-size:4rem;margin-bottom:1rem;display:block}
-.drag-text{font-family:var(--sans);font-size:1.5rem;color:#fff;font-weight:700}
-.speed-info{display:flex;gap:1rem;align-items:center;font-size:11px;color:var(--muted);margin-top:.5rem}
-.speed-info span{color:var(--accent)}
-.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin:.5rem 0}
-.pin-wrap input{width:3.5rem;height:3.5rem;padding:0;text-align:center;font-size:1.5rem;font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);-webkit-appearance:none;-moz-appearance:none;appearance:none}
-.pin-wrap input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 15px var(--accent-glow)}
-.pin-wrap input::-webkit-outer-spin-button,.pin-wrap input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.retry-badge{font-size:10px;color:var(--muted);background:rgba(255,77,106,.1);border:1px solid var(--red-dim);border-radius:4px;padding:.1rem .4rem;margin-left:.5rem}
-.recv-item-col{flex-direction:column;align-items:stretch;gap:.6rem}
-.recv-preview{width:100%;max-height:260px;object-fit:contain;border-radius:8px;background:#000;display:block}
-.recv-audio{width:100%;margin-top:.25rem}
-.recv-info{display:flex;align-items:center;gap:.6rem;font-size:13px}
-.camera-btn{position:fixed;bottom:calc(1.5rem + var(--safe-bottom));right:1.5rem;width:56px;height:56px;border-radius:50%;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,217,255,.2);transition:all .2s;z-index:50;display:flex;align-items:center;justify-content:center}
-.qr-scanner-modal{position:fixed;inset:0;background:rgba(8,9,12,.95);backdrop-filter:blur(12px);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:calc(3.5rem + env(safe-area-inset-top,0px)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom,0px));overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .3s}
-.qr-scanner-modal.active{opacity:1;pointer-events:auto}
-.qr-scanner-title{font-family:var(--sans);font-size:1.25rem;font-weight:700;margin-bottom:1rem;color:#fff}
-.qr-scanner-wrap{width:100%;max-width:400px;height:min(calc(100vw - 3rem),55vh);background:#000;border-radius:16px;overflow:hidden;border:2px solid var(--accent);position:relative}
-.qr-clickable{cursor:pointer;transition:transform .2s,box-shadow .2s}
-.qr-clickable:active{transform:scale(.95)}
-@media(hover:hover){.qr-clickable:hover{box-shadow:0 0 20px var(--accent-glow);transform:scale(1.02)}}
-.qr-modal{width:100%;max-width:320px;background:#fff;padding:20px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:1rem}
-.qr-modal-inner canvas,.qr-modal-inner img{width:280px!important;height:280px!important}
-.qr-scanner-close{position:absolute;top:calc(1rem + env(safe-area-inset-top,0px));right:calc(1rem + env(safe-area-inset-right,0px));background:var(--surface-glass);border:1px solid var(--border);color:var(--text);width:44px;height:44px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center}
-.qr-scanner-close:active{background:var(--accent-dim)}
-.qr-retry-btn{margin-top:1rem;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:.6rem 1.2rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer}
-.qr-photo-btn{margin-top:.75rem;background:var(--accent-dim);border:1px solid rgba(0,217,255,.3);color:var(--accent);padding:.6rem 1.4rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .2s}
-.qr-photo-btn:active{background:rgba(0,217,255,.15)}
-.qr-close-btn{margin-top:.75rem;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.6rem 1.8rem;border-radius:8px;font-family:var(--mono);font-size:13px;cursor:pointer;transition:color .2s,border-color .2s}
-.qr-close-btn:active{color:var(--text);border-color:var(--text)}
-.transfer-controls{display:flex;gap:.75rem;margin-top:1rem;justify-content:center}
-.transfer-controls .btn{font-size:12px;padding:.5rem 1rem;min-height:auto}
-.btn-red{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
-#qr-reader video{border-radius:12px;object-fit:cover;width:100%!important;height:100%!important}
-#qr-reader{position:relative;width:100%;height:100%}
-#qr-reader__dashboard_section_csr span{color:var(--text)!important}
-#qr-reader__scan_region img{margin:auto}
-.scan-hint{font-size:12px;color:var(--muted);margin-top:1rem;text-align:center}
-.camera-btn:active{transform:scale(.9)}
-.camera-btn:hover{box-shadow:0 6px 30px rgba(0,217,255,.3);transform:translateY(-2px)}
-@media(min-width:800px){.camera-btn{display:none}}
-.hidden{display:none!important}
-.view-transition{animation:slideIn .4s cubic-bezier(.4,0,.2,1)}
-@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
-.file-item-enter{animation:itemPop .3s cubic-bezier(.4,0,.2,1)}
-.sent-item{display:flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,rgba(0,255,157,.08) 0%,rgba(0,255,157,.03) 100%);border:1px solid rgba(0,255,157,.25);border-radius:8px;padding:.75rem 1rem;font-size:13px;min-height:52px;animation:slidein .4s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 8px rgba(0,255,157,.1);margin-bottom:.5rem}
-.sent-item .fi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
-.sent-item .fi-size{color:var(--muted);font-size:11px;flex-shrink:0}
-.sent-item .fi-remove{background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:.3rem;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all .2s}
-.sent-item .fi-remove:active{background:var(--red-dim)}
-@keyframes itemPop{from{opacity:0;transform:scale(.9) translateY(-10px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.recv-item-enter{animation:slideUp .4s cubic-bezier(.4,0,.2,1)}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(100px)}}
-.success-pulse{animation:successPulse .6s ease}
-@keyframes successPulse{0%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 30px var(--green-glow)}100%{transform:scale(1)}}
-.shake{animation:shake .5s ease}
-@keyframes shake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-5px)}20%,40%,60%,80%{transform:translateX(5px)}}
-.progress-fill-anim{transition:width .3s cubic-bezier(.4,0,.2,1)}
-.toast{position:fixed;top:calc(1rem + var(--safe-top));left:50%;transform:translateX(-50%) translateY(-100px);background:var(--red-dim);border:1px solid var(--red);color:var(--text);padding:1rem 1.5rem;border-radius:10px;font-size:13px;z-index:300;opacity:0;transition:all .3s ease;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.mt-2{margin-top:1rem}.mt-3{margin-top:1.25rem}
-#join-code-input{width:100%;background:linear-gradient(180deg,rgba(8,9,12,.8) 0%,rgba(8,9,12,.6) 100%);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1rem;color:var(--text);font-family:var(--mono);font-size:clamp(1.6rem,8vw,2.2rem);letter-spacing:.45em;text-transform:uppercase;text-align:center;outline:none;transition:all .2s;display:block;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
-#join-code-input:focus{border-color:var(--accent);box-shadow:inset 0 2px 4px rgba(0,0,0,.2),0 0 20px rgba(0,217,255,.15)}
-#join-code-input::placeholder{letter-spacing:.3em;color:var(--border2)}
-@media(max-width:540px){
-  .header{margin:1rem 0 1.5rem}
-  .card{padding:1.25rem 1rem}
-  .mode-grid{grid-template-columns:1fr}
-  .mode-btn{min-height:76px;flex-direction:row;align-items:center;gap:1rem;padding:1rem 1.25rem;justify-content:flex-start}
-  .mode-btn .icon{font-size:1.5rem;margin-bottom:0}
-  .share-grid{grid-template-columns:1fr}
-  .qr-wrap{order:-1;display:flex;flex-direction:column;align-items:center;padding:.5rem}
-  .qr-inner img,.qr-inner canvas{width:130px!important;height:130px!important}
-  .room-box{padding:1rem .875rem}
-  .room-code{font-size:clamp(2rem,11vw,2.8rem)}
-  .divider{margin:.75rem 0}
-  .btn{width:100%;min-height:54px}
-  .copy-row{width:100%;display:flex;gap:.5rem}
-  .copy-btn,.share-btn{flex:1;min-height:48px}
-  .prog-item{margin-bottom:.5rem}
-  .footer{font-size:9px;padding:0 .5rem;text-align:center}
-  .speed-info{font-size:10px}
-  #app{padding-top:calc(1.25rem + var(--safe-top))}
-  .btn-back{min-height:52px;min-width:110px;font-size:13px;padding:.875rem 1.25rem;margin-bottom:1rem}
-  .btn-back::before{font-size:1.3rem}
-  .dropzone{padding:1.25rem .875rem}
-  .status{font-size:13px;margin-top:.625rem}
-  .dot{width:10px;height:10px}
-  .label{font-size:11px}
-  .sent-item .fi-remove{width:40px;height:40px;font-size:16px}
-  .recv-preview{max-height:180px}
-  .dl-btn{min-height:48px;padding:.5rem 1rem}
-  .file-item,.sent-item{padding:.625rem .75rem}
-  .recv-item{padding:.625rem .75rem}
-}
-</style>
-</head>
-<body>
-<div class="drag-overlay" id="drag-overlay"><div class="drag-content"><span class="drag-icon">&#128228;</span><div class="drag-text">Drop files to share</div></div></div>
-<div id="app">
-  <div class="header">
-    <div class="logo">File<span>Drop</span></div>
-    <div class="tagline">Instant device-to-device &middot; No uploads &middot; No servers</div>
-  </div>
-
-  <!-- HOME -->
-  <div id="view-home">
-    <div class="mode-grid">
-      <button class="mode-btn" onclick="createRoom()">
-        <span class="icon">&#10022;</span>
-        <span class="mode-title">New Room</span>
-        <span class="mode-desc">Create a room &amp; invite someone</span>
-      </button>
-      <button class="mode-btn" onclick="showJoin()">
-        <span class="icon">&#8594;</span>
-        <span class="mode-title">Join Room</span>
-        <span class="mode-desc">Enter or scan a room code</span>
-      </button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="theme-color" content="#08090c" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="preconnect" href="https://0.peerjs.com" />
+    <link rel="dns-prefetch" href="https://0.peerjs.com" />
+    <meta
+      name="description"
+      content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FileDrop" />
+    <meta
+      property="og:description"
+      content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers."
+    />
+    <meta property="og:image" content="preview.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FileDrop" />
+    <meta
+      name="twitter:description"
+      content="Instant encrypted file sharing — peer-to-peer, no uploads, no servers."
+    />
+    <meta name="twitter:image" content="preview.svg" />
+    <meta name="apple-mobile-web-app-title" content="FileDrop" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <title>FileDrop</title>
+    <!-- Privacy: Self-host these fonts or use system fonts to avoid Google tracking -->
+    <style>
+      @font-face {
+        font-family: "JetBrains Mono";
+        src:
+          local("JetBrains Mono"), local("Menlo"), local("Monaco"),
+          local("Consolas"), local("Courier New");
+        font-weight: 400 700;
+      }
+      @font-face {
+        font-family: "Syne";
+        src:
+          local("Syne"), local("Inter"), local("Segoe UI"), local("Roboto"),
+          local("Helvetica"), local("Arial");
+        font-weight: 700 800;
+      }
+    </style>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com; media-src 'self' blob:; img-src 'self' blob: data:; worker-src 'self' blob:;"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button,
+      a[href],
+      [role="button"] {
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+      }
+      :root {
+        --bg: #08090c;
+        --surface: #0f1116;
+        --surface-glass: rgba(15, 17, 22, 0.85);
+        --border: #1c1f28;
+        --border2: #252932;
+        --text: #c5d0e5;
+        --muted: #4a5568;
+        --accent: #00d9ff;
+        --accent-dim: rgba(0, 217, 255, 0.08);
+        --accent-glow: rgba(0, 217, 255, 0.35);
+        --green: #00ff9d;
+        --green-dim: rgba(0, 255, 157, 0.1);
+        --green-glow: rgba(0, 255, 157, 0.3);
+        --red: #ff4d6a;
+        --red-dim: rgba(255, 77, 106, 0.1);
+        --mono: "JetBrains Mono", monospace;
+        --sans: "Syne", sans-serif;
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
+      }
+      html {
+        height: 100%;
+      }
+      body {
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 15px;
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse 80% 50% at 50% -20%,
+            rgba(0, 217, 255, 0.08),
+            transparent
+          ),
+          linear-gradient(rgba(0, 217, 255, 0.015) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 217, 255, 0.015) 1px, transparent 1px);
+        background-size:
+          100% 100%,
+          56px 56px,
+          56px 56px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      #app {
+        position: relative;
+        z-index: 1;
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: calc(2rem + var(--safe-top)) max(1.25rem, var(--safe-right))
+          calc(2rem + var(--safe-bottom)) max(1.25rem, var(--safe-left));
+      }
+      .header {
+        margin: 2rem 0 2.5rem;
+        text-align: center;
+        animation: fadeInDown 0.6s ease;
+      }
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .logo {
+        font-family: var(--sans);
+        font-size: clamp(2rem, 7vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #fff;
+        background: linear-gradient(
+          180deg,
+          #fff 0%,
+          rgba(255, 255, 255, 0.85) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .logo span {
+        background: linear-gradient(135deg, var(--accent) 0%, #00b8e6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: none;
+      }
+      .tagline {
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-top: 0.5rem;
+      }
+      .card {
+        background: var(--surface-glass);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: clamp(1.5rem, 5vw, 2rem);
+        width: 100%;
+        max-width: 520px;
+        position: relative;
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.4),
+          0 2px 8px rgba(0, 0, 0, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        animation: fadeInUp 0.5s ease;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .card-accent::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 5%;
+        right: 5%;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent-glow),
+          var(--accent),
+          var(--accent-glow),
+          transparent
+        );
+        border-radius: 2px 2px 0 0;
+        animation: glowPulse 3s ease-in-out infinite;
+      }
+      @keyframes glowPulse {
+        0%,
+        100% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .connected-border {
+        border-color: rgba(0, 255, 157, 0.4) !important;
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.4),
+          0 0 30px var(--green-glow),
+          inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+      .mode-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        width: 100%;
+        max-width: 520px;
+        animation: fadeInUp 0.5s ease 0.1s both;
+      }
+      .mode-btn {
+        background: var(--surface-glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.75rem 1.5rem;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        color: var(--text);
+        font-family: var(--mono);
+        user-select: none;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        position: relative;
+        overflow: hidden;
+      }
+      .mode-btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+          rgba(0, 217, 255, 0.15),
+          transparent 40%
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .mode-btn:hover::before {
+        opacity: 1;
+      }
+      .mode-btn:active {
+        background: var(--accent-dim);
+        border-color: var(--accent);
+        transform: scale(0.98);
+      }
+      @media (hover: hover) {
+        .mode-btn:hover {
+          border-color: rgba(0, 217, 255, 0.5);
+          background: var(--accent-dim);
+          box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            0 0 40px var(--accent-glow);
+          transform: translateY(-3px);
+        }
+      }
+      .mode-btn .icon {
+        font-size: 1.75rem;
+        margin-bottom: 0.6rem;
+        display: block;
+      }
+      .mode-btn .mode-title {
+        font-family: var(--sans);
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+        display: block;
+      }
+      .mode-btn .mode-desc {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 0.2rem;
+        display: block;
+        line-height: 1.4;
+      }
+      .label {
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+        display: block;
+      }
+      .btn-back {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--muted);
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 48px;
+        min-width: 100px;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+      .btn-back::before {
+        content: "\2190";
+        font-size: 1.2rem;
+        color: var(--accent);
+      }
+      .btn-back:active {
+        background: var(--accent-dim);
+        border-color: var(--accent);
+        color: var(--text);
+        transform: scale(0.96);
+      }
+      .btn-back:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .share-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.875rem;
+        align-items: stretch;
+        transition:
+          max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+          opacity 0.3s ease,
+          gap 0.4s ease;
+        max-height: 600px;
+        opacity: 1;
+        overflow: hidden;
+      }
+      .share-grid.collapsed {
+        max-height: 0;
+        opacity: 0;
+        gap: 0;
+      }
+      @media (max-width: 460px) {
+        .share-grid {
+          grid-template-columns: 1fr;
+        }
+        .qr-wrap {
+          order: -1;
+        }
+      }
+      .share-grid .room-box {
+        gap: 0.5rem;
+        padding: 1.25rem 1rem;
+      }
+      .room-box {
+        background: linear-gradient(
+          180deg,
+          rgba(15, 17, 22, 0.8) 0%,
+          rgba(15, 17, 22, 0.4) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      }
+      .room-code {
+        font-size: clamp(1.8rem, 8vw, 2.6rem);
+        font-weight: 700;
+        letter-spacing: 0.25em;
+        color: var(--accent);
+        text-shadow:
+          0 0 20px var(--accent-glow),
+          0 0 40px rgba(0, 217, 255, 0.15);
+        font-family: var(--mono);
+        line-height: 1;
+        animation: codeGlow 2s ease-in-out infinite alternate;
+      }
+      @keyframes codeGlow {
+        from {
+          text-shadow:
+            0 0 20px var(--accent-glow),
+            0 0 40px rgba(0, 217, 255, 0.1);
+        }
+        to {
+          text-shadow:
+            0 0 30px var(--accent-glow),
+            0 0 60px rgba(0, 217, 255, 0.2);
+        }
+      }
+      .room-hint {
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+      }
+      .copy-btn {
+        background: linear-gradient(
+          180deg,
+          var(--accent-dim) 0%,
+          rgba(0, 217, 255, 0.04) 100%
+        );
+        border: 1px solid rgba(0, 217, 255, 0.25);
+        border-radius: 8px;
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.6rem 1.25rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-height: 42px;
+        margin-top: 0.25rem;
+        user-select: none;
+        position: relative;
+        overflow: hidden;
+      }
+      .copy-btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 217, 255, 0.1),
+          transparent
+        );
+        transform: translateX(-100%);
+      }
+      .copy-btn:hover::before {
+        transform: translateX(100%);
+        transition: transform 0.5s;
+      }
+      .copy-btn:active {
+        background: rgba(0, 217, 255, 0.15);
+        transform: scale(0.96);
+      }
+      .share-btn {
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          rgba(15, 17, 22, 0.5) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.6rem 1.25rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-height: 42px;
+        user-select: none;
+      }
+      .share-btn:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text);
+      }
+      .share-btn:active {
+        border-color: var(--accent);
+        color: var(--accent);
+        transform: scale(0.96);
+      }
+      .copy-row {
+        display: flex;
+        gap: 0.5rem;
+        width: 100%;
+      }
+      .copy-row .copy-btn {
+        flex: 1;
+      }
+      .copy-row .share-btn {
+        flex: 1;
+      }
+      .qr-wrap {
+        background: linear-gradient(
+          180deg,
+          rgba(15, 17, 22, 0.8) 0%,
+          rgba(15, 17, 22, 0.4) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      }
+      .qr-inner {
+        background: #fff;
+        padding: 10px;
+        border-radius: 6px;
+        display: inline-block;
+        line-height: 0;
+      }
+      .qr-inner canvas,
+      .qr-inner img {
+        display: block;
+      }
+      .qr-label {
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-align: center;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-top: 0.875rem;
+        min-height: 24px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex-shrink: 0;
+        transition: background 0.3s;
+      }
+      .fingerprint {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        margin-top: 0.2rem;
+      }
+      .fp-value {
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        font-weight: 700;
+      }
+      .fp-hint {
+        font-size: 9px;
+        opacity: 0.7;
+      }
+      .dot.init {
+        animation: pulse 1.2s infinite;
+      }
+      .dot.waiting {
+        background: var(--accent);
+        animation: pulse 1.2s infinite;
+      }
+      .dot.connected {
+        background: var(--green);
+        box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        animation: none;
+      }
+      .dot.error {
+        background: var(--red);
+        animation: none;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.2;
+        }
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 1.25rem 0;
+      }
+      .dropzone {
+        border: 2px dashed var(--border2);
+        border-radius: 12px;
+        padding: 2rem 1.25rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        position: relative;
+        background: linear-gradient(
+          180deg,
+          rgba(15, 17, 22, 0.5) 0%,
+          rgba(15, 17, 22, 0.3) 100%
+        );
+      }
+      .dropzone::before {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 14px;
+        padding: 2px;
+        background: linear-gradient(
+          135deg,
+          rgba(0, 217, 255, 0.3) 0%,
+          transparent 50%,
+          rgba(0, 217, 255, 0.1) 100%
+        );
+        -webkit-mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .dropzone:active,
+      .dropzone.dragover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+      .dropzone:active::before,
+      .dropzone.dragover::before {
+        opacity: 1;
+      }
+      @media (hover: hover) {
+        .dropzone:hover {
+          border-color: rgba(0, 217, 255, 0.4);
+          background: var(--accent-dim);
+          transform: translateY(-1px);
+        }
+      }
+      @media (hover: hover) {
+        .dropzone:hover::before {
+          opacity: 0.5;
+        }
+      }
+      .dropzone input {
+        display: none;
+      }
+      .dz-icon {
+        font-size: 1.6rem;
+        display: block;
+        margin-bottom: 0.5rem;
+      }
+      .dz-text {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .dz-text span {
+        color: var(--accent);
+      }
+      .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-top: 0.75rem;
+      }
+      .file-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: linear-gradient(
+          180deg,
+          rgba(15, 17, 22, 0.8) 0%,
+          rgba(15, 17, 22, 0.5) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 13px;
+        min-height: 52px;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .file-item:hover {
+        border-color: rgba(0, 217, 255, 0.2);
+        box-shadow: 0 2px 12px rgba(0, 217, 255, 0.08);
+      }
+      .fi-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text);
+      }
+      .fi-size {
+        color: var(--muted);
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .fi-remove {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 14px;
+        flex-shrink: 0;
+        transition: all 0.2s;
+        font-family: var(--mono);
+        padding: 0.25rem 0.5rem;
+        margin: -0.25rem -0.5rem;
+        min-width: 40px;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+      }
+      .fi-thumb {
+        width: 38px;
+        height: 38px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        border: 1px solid var(--border);
+      }
+      .fi-remove:hover {
+        background: var(--red-dim);
+        color: var(--red);
+      }
+      .fi-remove:active {
+        background: var(--red-dim);
+        color: var(--red);
+        transform: scale(0.9);
+      }
+      .progress-section {
+        margin-top: 1.25rem;
+      }
+      .prog-item {
+        margin-bottom: 0.875rem;
+      }
+      .prog-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 0.35rem;
+      }
+      .prog-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 78%;
+      }
+      .prog-pct {
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+      .prog-bar {
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .prog-fill {
+        height: 100%;
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent-glow);
+        transition: width 0.1s linear;
+        border-radius: 2px;
+      }
+      .prog-fill.done {
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
+      }
+      .xfer-section {
+        margin-top: 0.75rem;
+      }
+      .xfer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.4rem;
+      }
+      .xfer-speed {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .xfer-speed span {
+        color: var(--accent);
+      }
+      .xfer-track {
+        height: 6px;
+        background: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        position: relative;
+      }
+      .xfer-track-recv {
+        transform: scaleX(-1);
+      }
+      .xfer-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 0%;
+        border-radius: 3px;
+        transition: width 0.15s linear;
+        overflow: hidden;
+      }
+      .xfer-fill-send {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green-glow);
+      }
+      .xfer-fill-recv {
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent-glow);
+      }
+      .xfer-fill.active::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: -40%;
+        width: 40%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.3),
+          transparent
+        );
+        animation: xferSweep 1.8s ease-in-out infinite;
+      }
+      @keyframes xferSweep {
+        from {
+          left: -40%;
+        }
+        to {
+          left: 140%;
+        }
+      }
+      .xfer-file-list {
+        margin-top: 0.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .xfer-file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: var(--muted);
+        gap: 0.5rem;
+      }
+      .xfer-file-item .prog-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .xfer-file-item .prog-pct {
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+      .btn {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 52px;
+        user-select: none;
+        position: relative;
+        overflow: hidden;
+      }
+      .btn::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.1),
+          transparent
+        );
+        transform: translateX(-100%);
+        transition: none;
+      }
+      .btn:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+      .btn:active:not(:disabled)::after {
+        transform: translateX(100%);
+        transition: transform 0.4s;
+      }
+      @media (hover: hover) {
+        .btn:hover:not(:disabled) {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--accent-dim);
+          box-shadow: 0 4px 20px rgba(0, 217, 255, 0.15);
+        }
+      }
+      .btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: linear-gradient(
+          180deg,
+          var(--accent-dim) 0%,
+          rgba(0, 217, 255, 0.04) 100%
+        );
+        box-shadow:
+          0 4px 20px rgba(0, 217, 255, 0.1),
+          inset 0 1px 0 rgba(0, 217, 255, 0.1);
+      }
+      .btn-primary:active:not(:disabled) {
+        background: rgba(0, 217, 255, 0.15);
+        box-shadow:
+          0 2px 10px rgba(0, 217, 255, 0.1),
+          inset 0 1px 0 rgba(0, 217, 255, 0.1);
+      }
+      .btn-send {
+        border-color: var(--green);
+        color: var(--green);
+        background: linear-gradient(
+          180deg,
+          var(--green-dim) 0%,
+          rgba(0, 255, 157, 0.04) 100%
+        );
+        box-shadow:
+          0 4px 20px rgba(0, 255, 157, 0.1),
+          inset 0 1px 0 rgba(0, 255, 157, 0.1);
+      }
+      .btn-send:active:not(:disabled) {
+        background: rgba(0, 255, 157, 0.15);
+        box-shadow:
+          0 2px 10px rgba(0, 255, 157, 0.1),
+          inset 0 1px 0 rgba(0, 255, 157, 0.1);
+      }
+      input[type="text"] {
+        width: 100%;
+        background: linear-gradient(
+          180deg,
+          rgba(8, 9, 12, 0.8) 0%,
+          rgba(8, 9, 12, 0.6) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: max(16px, 1.6rem);
+        letter-spacing: 0.3em;
+        outline: none;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        text-align: center;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+        box-shadow:
+          inset 0 2px 4px rgba(0, 0, 0, 0.2),
+          0 0 20px rgba(0, 217, 255, 0.15);
+      }
+      .recv-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 255, 157, 0.08) 0%,
+          rgba(0, 255, 157, 0.03) 100%
+        );
+        border: 1px solid rgba(0, 255, 157, 0.25);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 13px;
+        min-height: 52px;
+        animation: slidein 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0, 255, 157, 0.1);
+      }
+      @keyframes slidein {
+        from {
+          opacity: 0;
+          transform: translateY(-10px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .ri-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text);
+      }
+      .ri-size {
+        color: var(--muted);
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .dl-btn {
+        background: var(--green-dim);
+        border: 1px solid rgba(0, 255, 136, 0.25);
+        border-radius: 5px;
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.4rem 0.75rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.2s;
+        flex-shrink: 0;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        touch-action: manipulation;
+      }
+      .dl-btn:active {
+        background: rgba(0, 255, 136, 0.14);
+      }
+      .empty {
+        font-size: 12px;
+        color: var(--muted);
+        text-align: center;
+        padding: 1.25rem 0;
+      }
+      .footer {
+        margin-top: 2.5rem;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.12em;
+        text-align: center;
+        padding-bottom: 0.5rem;
+        opacity: 0.7;
+      }
+      .drag-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 9, 12, 0.95);
+        backdrop-filter: blur(10px);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .drag-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drag-content {
+        text-align: center;
+        animation: float 2s ease-in-out infinite;
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+      .drag-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        display: block;
+      }
+      .drag-text {
+        font-family: var(--sans);
+        font-size: 1.5rem;
+        color: #fff;
+        font-weight: 700;
+      }
+      .speed-info {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 0.5rem;
+      }
+      .speed-info span {
+        color: var(--accent);
+      }
+      .pin-wrap {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin: 0.5rem 0;
+      }
+      .pin-wrap input {
+        width: 3.5rem;
+        height: 3.5rem;
+        padding: 0;
+        text-align: center;
+        font-size: 1.5rem;
+        font-family: var(--mono);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text);
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+      .pin-wrap input:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 15px var(--accent-glow);
+      }
+      .pin-wrap input::-webkit-outer-spin-button,
+      .pin-wrap input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .retry-badge {
+        font-size: 10px;
+        color: var(--muted);
+        background: rgba(255, 77, 106, 0.1);
+        border: 1px solid var(--red-dim);
+        border-radius: 4px;
+        padding: 0.1rem 0.4rem;
+        margin-left: 0.5rem;
+      }
+      .recv-item-col {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+      }
+      .recv-preview {
+        width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: #000;
+        display: block;
+      }
+      .recv-audio {
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+      .recv-info {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 13px;
+      }
+      .camera-btn {
+        position: fixed;
+        bottom: calc(1.5rem + var(--safe-bottom));
+        right: 1.5rem;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--accent-dim);
+        border: 1px solid rgba(0, 217, 255, 0.3);
+        color: var(--accent);
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0, 217, 255, 0.2);
+        transition: all 0.2s;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .qr-scanner-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 9, 12, 0.95);
+        backdrop-filter: blur(12px);
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: calc(3.5rem + env(safe-area-inset-top, 0px)) 1.5rem
+          calc(1.5rem + env(safe-area-inset-bottom, 0px));
+        overflow-y: auto;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .qr-scanner-modal.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .qr-scanner-title {
+        font-family: var(--sans);
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #fff;
+      }
+      .qr-scanner-wrap {
+        width: 100%;
+        max-width: 400px;
+        height: min(calc(100vw - 3rem), 55vh);
+        background: #000;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 2px solid var(--accent);
+        position: relative;
+      }
+      .qr-clickable {
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .qr-clickable:active {
+        transform: scale(0.95);
+      }
+      @media (hover: hover) {
+        .qr-clickable:hover {
+          box-shadow: 0 0 20px var(--accent-glow);
+          transform: scale(1.02);
+        }
+      }
+      .qr-modal {
+        width: 100%;
+        max-width: 320px;
+        background: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+      .qr-modal-inner canvas,
+      .qr-modal-inner img {
+        width: 280px !important;
+        height: 280px !important;
+      }
+      .qr-scanner-close {
+        position: absolute;
+        top: calc(1rem + env(safe-area-inset-top, 0px));
+        right: calc(1rem + env(safe-area-inset-right, 0px));
+        background: var(--surface-glass);
+        border: 1px solid var(--border);
+        color: var(--text);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .qr-scanner-close:active {
+        background: var(--accent-dim);
+      }
+      .qr-retry-btn {
+        margin-top: 1rem;
+        background: var(--accent-dim);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .qr-photo-btn {
+        margin-top: 0.75rem;
+        background: var(--accent-dim);
+        border: 1px solid rgba(0, 217, 255, 0.3);
+        color: var(--accent);
+        padding: 0.6rem 1.4rem;
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .qr-photo-btn:active {
+        background: rgba(0, 217, 255, 0.15);
+      }
+      .qr-close-btn {
+        margin-top: 0.75rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.6rem 1.8rem;
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 13px;
+        cursor: pointer;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+      }
+      .qr-close-btn:active {
+        color: var(--text);
+        border-color: var(--text);
+      }
+      .transfer-controls {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        justify-content: center;
+      }
+      .transfer-controls .btn {
+        font-size: 12px;
+        padding: 0.5rem 1rem;
+        min-height: auto;
+      }
+      .btn-red {
+        background: var(--red-dim);
+        border: 1px solid var(--red);
+        color: var(--red);
+      }
+      #qr-reader video {
+        border-radius: 12px;
+        object-fit: cover;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      #qr-reader {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      #qr-reader__dashboard_section_csr span {
+        color: var(--text) !important;
+      }
+      #qr-reader__scan_region img {
+        margin: auto;
+      }
+      .scan-hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 1rem;
+        text-align: center;
+      }
+      .camera-btn:active {
+        transform: scale(0.9);
+      }
+      .camera-btn:hover {
+        box-shadow: 0 6px 30px rgba(0, 217, 255, 0.3);
+        transform: translateY(-2px);
+      }
+      @media (min-width: 800px) {
+        .camera-btn {
+          display: none;
+        }
+      }
+      .hidden {
+        display: none !important;
+      }
+      .view-transition {
+        animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      .file-item-enter {
+        animation: itemPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .sent-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 255, 157, 0.08) 0%,
+          rgba(0, 255, 157, 0.03) 100%
+        );
+        border: 1px solid rgba(0, 255, 157, 0.25);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 13px;
+        min-height: 52px;
+        animation: slidein 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0, 255, 157, 0.1);
+        margin-bottom: 0.5rem;
+      }
+      .sent-item .fi-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text);
+      }
+      .sent-item .fi-size {
+        color: var(--muted);
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .sent-item .fi-remove {
+        background: none;
+        border: none;
+        color: var(--red);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 0.3rem;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+      .sent-item .fi-remove:active {
+        background: var(--red-dim);
+      }
+      @keyframes itemPop {
+        from {
+          opacity: 0;
+          transform: scale(0.9) translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      .recv-item-enter {
+        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes slideOut {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(100px);
+        }
+      }
+      .success-pulse {
+        animation: successPulse 0.6s ease;
+      }
+      @keyframes successPulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+          box-shadow: 0 0 30px var(--green-glow);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .shake {
+        animation: shake 0.5s ease;
+      }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        10%,
+        30%,
+        50%,
+        70%,
+        90% {
+          transform: translateX(-5px);
+        }
+        20%,
+        40%,
+        60%,
+        80% {
+          transform: translateX(5px);
+        }
+      }
+      .progress-fill-anim {
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .toast {
+        position: fixed;
+        top: calc(1rem + var(--safe-top));
+        left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--red-dim);
+        border: 1px solid var(--red);
+        color: var(--text);
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        font-size: 13px;
+        z-index: 300;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      .mt-2 {
+        margin-top: 1rem;
+      }
+      .mt-3 {
+        margin-top: 1.25rem;
+      }
+      #join-code-input {
+        width: 100%;
+        background: linear-gradient(
+          180deg,
+          rgba(8, 9, 12, 0.8) 0%,
+          rgba(8, 9, 12, 0.6) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.1rem 1rem;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: clamp(1.6rem, 8vw, 2.2rem);
+        letter-spacing: 0.45em;
+        text-transform: uppercase;
+        text-align: center;
+        outline: none;
+        transition: all 0.2s;
+        display: block;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      #join-code-input:focus {
+        border-color: var(--accent);
+        box-shadow:
+          inset 0 2px 4px rgba(0, 0, 0, 0.2),
+          0 0 20px rgba(0, 217, 255, 0.15);
+      }
+      #join-code-input::placeholder {
+        letter-spacing: 0.3em;
+        color: var(--border2);
+      }
+      @media (max-width: 540px) {
+        .header {
+          margin: 1rem 0 1.5rem;
+        }
+        .card {
+          padding: 1.25rem 1rem;
+        }
+        .mode-grid {
+          grid-template-columns: 1fr;
+        }
+        .mode-btn {
+          min-height: 76px;
+          flex-direction: row;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem 1.25rem;
+          justify-content: flex-start;
+        }
+        .mode-btn .icon {
+          font-size: 1.5rem;
+          margin-bottom: 0;
+        }
+        .share-grid {
+          grid-template-columns: 1fr;
+        }
+        .qr-wrap {
+          order: -1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0.5rem;
+        }
+        .qr-inner img,
+        .qr-inner canvas {
+          width: 130px !important;
+          height: 130px !important;
+        }
+        .room-box {
+          padding: 1rem 0.875rem;
+        }
+        .room-code {
+          font-size: clamp(2rem, 11vw, 2.8rem);
+        }
+        .divider {
+          margin: 0.75rem 0;
+        }
+        .btn {
+          width: 100%;
+          min-height: 54px;
+        }
+        .copy-row {
+          width: 100%;
+          display: flex;
+          gap: 0.5rem;
+        }
+        .copy-btn,
+        .share-btn {
+          flex: 1;
+          min-height: 48px;
+        }
+        .prog-item {
+          margin-bottom: 0.5rem;
+        }
+        .footer {
+          font-size: 9px;
+          padding: 0 0.5rem;
+          text-align: center;
+        }
+        .speed-info {
+          font-size: 10px;
+        }
+        #app {
+          padding-top: calc(1.25rem + var(--safe-top));
+        }
+        .btn-back {
+          min-height: 52px;
+          min-width: 110px;
+          font-size: 13px;
+          padding: 0.875rem 1.25rem;
+          margin-bottom: 1rem;
+        }
+        .btn-back::before {
+          font-size: 1.3rem;
+        }
+        .dropzone {
+          padding: 1.25rem 0.875rem;
+        }
+        .status {
+          font-size: 13px;
+          margin-top: 0.625rem;
+        }
+        .dot {
+          width: 10px;
+          height: 10px;
+        }
+        .label {
+          font-size: 11px;
+        }
+        .sent-item .fi-remove {
+          width: 40px;
+          height: 40px;
+          font-size: 16px;
+        }
+        .recv-preview {
+          max-height: 180px;
+        }
+        .dl-btn {
+          min-height: 48px;
+          padding: 0.5rem 1rem;
+        }
+        .file-item,
+        .sent-item {
+          padding: 0.625rem 0.75rem;
+        }
+        .recv-item {
+          padding: 0.625rem 0.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="drag-overlay" id="drag-overlay">
+      <div class="drag-content">
+        <span class="drag-icon">&#128228;</span>
+        <div class="drag-text">Drop files to share</div>
+      </div>
     </div>
-  </div>
-
-  <!-- JOIN ENTRY -->
-  <div id="view-join" class="card card-accent hidden">
-    <button class="btn-back" onclick="goHome()">Back</button>
-    <span class="label">Room Code</span>
-    <input type="text" id="join-code-input" maxlength="6" placeholder="XXXXXX"
-      autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"
-      oninput="this.value=this.value.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6)"
-      onkeydown="if(event.key==='Enter')joinRoom()">
-    <div class="mt-2">
-      <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">Join Room</button>
-    </div>
-    <div class="mt-2" style="display:flex;gap:.5rem">
-      <button class="btn btn-secondary" style="flex:1" onclick="openQRScanner()">&#128247; Scan QR</button>
-      <button class="btn btn-secondary" style="flex:1" onclick="pasteCode()" id="paste-btn">&#128203; Paste Code</button>
-    </div>
-    <div class="status">
-      <div class="dot" id="join-dot"></div>
-      <span id="join-status-text">Enter a room code</span>
-    </div>
-  </div>
-
-  <!-- ROOM (bidirectional — host & guest both use this) -->
-  <div id="view-room" class="card card-accent hidden">
-    <button class="btn-back" onclick="goHome()">Back</button>
-
-    <span class="label" id="room-label">Room</span>
-    <div class="share-grid" id="room-share-grid">
-      <div class="room-box">
-        <div class="room-code" id="room-code-display">&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;</div>
-        <div class="room-hint">Room Code</div>
-        <div class="copy-row">
-          <button class="copy-btn" id="room-copy-btn" onclick="copyRoomCode()">Copy</button>
-          <button class="share-btn" onclick="shareRoomLink()">Share</button>
+    <div id="app">
+      <div class="header">
+        <div class="logo">File<span>Drop</span></div>
+        <div class="tagline">
+          Instant device-to-device &middot; No uploads &middot; No servers
         </div>
       </div>
-      <div class="qr-wrap">
-        <div class="qr-inner qr-clickable" id="room-qr-container" onclick="showEnlargedQR()" title="Tap to enlarge"></div>
-        <div class="qr-label">Tap QR to enlarge</div>
+
+      <!-- HOME -->
+      <div id="view-home">
+        <div class="mode-grid">
+          <button class="mode-btn" onclick="createRoom()">
+            <span class="icon">&#10022;</span>
+            <span class="mode-title">New Room</span>
+            <span class="mode-desc">Create a room &amp; invite someone</span>
+          </button>
+          <button class="mode-btn" onclick="showJoin()">
+            <span class="icon">&#8594;</span>
+            <span class="mode-title">Join Room</span>
+            <span class="mode-desc">Enter or scan a room code</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- JOIN ENTRY -->
+      <div id="view-join" class="card card-accent hidden">
+        <button class="btn-back" onclick="goHome()">Back</button>
+        <span class="label">Room Code</span>
+        <input
+          type="text"
+          id="join-code-input"
+          maxlength="6"
+          placeholder="XXXXXX"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="text"
+          oninput="
+            this.value = this.value
+              .replace(/[^A-Z0-9]/gi, '')
+              .toUpperCase()
+              .slice(0, 6)
+          "
+          onkeydown="if (event.key === 'Enter') joinRoom();"
+        />
+        <div class="mt-2">
+          <button class="btn btn-primary" id="join-btn" onclick="joinRoom()">
+            Join Room
+          </button>
+        </div>
+        <div class="mt-2" style="display: flex; gap: 0.5rem">
+          <button
+            class="btn btn-secondary"
+            style="flex: 1"
+            onclick="openQRScanner()"
+          >
+            &#128247; Scan QR
+          </button>
+          <button
+            class="btn btn-secondary"
+            style="flex: 1"
+            onclick="pasteCode()"
+            id="paste-btn"
+          >
+            &#128203; Paste Code
+          </button>
+        </div>
+        <div class="status">
+          <div class="dot" id="join-dot"></div>
+          <span id="join-status-text">Enter a room code</span>
+        </div>
+      </div>
+
+      <!-- ROOM (bidirectional — host & guest both use this) -->
+      <div id="view-room" class="card card-accent hidden">
+        <button class="btn-back" onclick="goHome()">Back</button>
+
+        <span class="label" id="room-label">Room</span>
+        <div class="share-grid" id="room-share-grid">
+          <div class="room-box">
+            <div class="room-code" id="room-code-display">
+              &#xB7;&#xB7;&#xB7;&#xB7;&#xB7;&#xB7;
+            </div>
+            <div class="room-hint">Room Code</div>
+            <div class="copy-row">
+              <button
+                class="copy-btn"
+                id="room-copy-btn"
+                onclick="copyRoomCode()"
+              >
+                Copy
+              </button>
+              <button class="share-btn" onclick="shareRoomLink()">Share</button>
+            </div>
+          </div>
+          <div class="qr-wrap">
+            <div
+              class="qr-inner qr-clickable"
+              id="room-qr-container"
+              onclick="showEnlargedQR()"
+              title="Tap to enlarge"
+            ></div>
+            <div class="qr-label">Tap QR to enlarge</div>
+          </div>
+        </div>
+
+        <div id="room-pin-setup" class="hidden">
+          <div class="divider"></div>
+          <span class="label">Room Password (Optional)</span>
+          <div class="pin-wrap">
+            <input
+              type="tel"
+              id="host-pin1"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this)"
+            />
+            <input
+              type="tel"
+              id="host-pin2"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this)"
+            />
+            <input
+              type="tel"
+              id="host-pin3"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this)"
+            />
+            <input
+              type="tel"
+              id="host-pin4"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this)"
+            />
+          </div>
+        </div>
+
+        <div id="room-pin-entry" class="hidden">
+          <div class="divider"></div>
+          <span class="label">Room Password Required</span>
+          <div class="pin-wrap">
+            <input
+              type="tel"
+              id="guest-pin1"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this, true)"
+            />
+            <input
+              type="tel"
+              id="guest-pin2"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this, true)"
+            />
+            <input
+              type="tel"
+              id="guest-pin3"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this, true)"
+            />
+            <input
+              type="tel"
+              id="guest-pin4"
+              maxlength="1"
+              inputmode="numeric"
+              pattern="[0-9]"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="-"
+              onkeydown="onPinKey(event, this)"
+              oninput="onPinInput(this, true)"
+            />
+          </div>
+        </div>
+
+        <div class="status">
+          <div class="dot init" id="room-dot"></div>
+          <span id="room-status-text">Initializing&hellip;</span>
+        </div>
+        <div class="fingerprint hidden" id="room-fingerprint"></div>
+
+        <div class="divider"></div>
+        <span class="label">Send Files</span>
+        <div
+          class="dropzone"
+          id="dropzone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="onDragOver(event)"
+          ondragleave="onDragLeave()"
+          ondrop="onDrop(event)"
+        >
+          <input
+            type="file"
+            id="file-input"
+            multiple
+            onchange="onFilesSelected(event)"
+          />
+          <span class="dz-icon">&#128193;</span>
+          <div class="dz-text">
+            Tap to pick files<br /><span>or drag &amp; drop</span>
+          </div>
+        </div>
+        <div class="file-list" id="room-send-list"></div>
+        <div class="file-list" id="room-sent-list"></div>
+        <div id="room-send-progress" class="xfer-section hidden">
+          <div class="xfer-header">
+            <span class="label" style="margin-bottom: 0">Sending</span>
+            <span class="xfer-speed"
+              ><span id="speed-val">0 B/s</span> &middot;
+              <span id="eta-val">calculating&hellip;</span></span
+            >
+          </div>
+          <div class="xfer-track">
+            <div class="xfer-fill xfer-fill-send" id="send-overall-fill"></div>
+          </div>
+          <div id="room-progress-items" class="xfer-file-list"></div>
+        </div>
+        <div id="room-transfer-controls" class="transfer-controls hidden">
+          <button
+            class="btn btn-secondary"
+            id="pause-btn"
+            onclick="togglePause()"
+          >
+            Pause
+          </button>
+          <button class="btn btn-red" onclick="cancelTransfer()">Cancel</button>
+        </div>
+        <div class="mt-3">
+          <button
+            class="btn btn-send"
+            id="room-send-btn"
+            onclick="sendFiles()"
+            disabled
+          >
+            Send Files
+          </button>
+        </div>
+
+        <div class="divider"></div>
+        <span class="label">Received Files</span>
+        <div id="room-recv-progress" class="xfer-section hidden">
+          <div class="xfer-header">
+            <span class="label" style="margin-bottom: 0">Receiving</span>
+            <span class="xfer-speed"
+              ><span id="recv-speed-val">0 B/s</span> &middot;
+              <span id="recv-eta-val">calculating&hellip;</span></span
+            >
+          </div>
+          <div class="xfer-track xfer-track-recv">
+            <div class="xfer-fill xfer-fill-recv" id="recv-overall-fill"></div>
+          </div>
+          <div id="room-recv-items" class="xfer-file-list"></div>
+        </div>
+        <div class="file-list" id="room-recv-list">
+          <div class="empty">Waiting for files&hellip;</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        WebRTC peer-to-peer &middot; AES-256-GCM E2EE &middot; Files never touch
+        servers
+      </div>
+      <div class="toast" id="toast"></div>
+    </div>
+    <!-- QR Scanner Modal -->
+    <div class="qr-scanner-modal hidden" id="qr-scanner-modal">
+      <button class="qr-scanner-close" onclick="closeQRScanner()">
+        &#10005;
+      </button>
+      <div class="qr-scanner-title">Scan Room QR Code</div>
+      <div class="qr-scanner-wrap" id="qr-reader"></div>
+      <div class="scan-hint" id="scan-hint">
+        Point your camera at a FileDrop room QR code
+      </div>
+      <button
+        class="qr-retry-btn hidden"
+        id="qr-retry-btn"
+        onclick="retryQRScanner()"
+      >
+        Retry Camera
+      </button>
+      <button
+        class="qr-photo-btn"
+        onclick="document.getElementById('qr-scan-file').click()"
+      >
+        &#128247; Take Photo to Scan
+      </button>
+      <input
+        type="file"
+        id="qr-scan-file"
+        accept="image/*"
+        capture="environment"
+        class="hidden"
+        onchange="scanQRFromFile(event)"
+      />
+      <button class="qr-close-btn" onclick="closeQRScanner()">
+        Close Scanner
+      </button>
+    </div>
+    <!-- Enlarged QR Modal -->
+    <div class="qr-scanner-modal hidden" id="qr-enlarge-modal">
+      <button class="qr-scanner-close" onclick="closeEnlargedQR()">
+        &#10005;
+      </button>
+      <div class="qr-scanner-title">Room QR Code</div>
+      <div class="qr-modal">
+        <div
+          class="qr-modal-inner qr-clickable"
+          id="enlarged-qr-container"
+          onclick="closeEnlargedQR()"
+        ></div>
+        <div class="scan-hint">Tap QR code to close</div>
       </div>
     </div>
+    <button
+      class="camera-btn hidden"
+      id="camera-btn"
+      onclick="openCamera()"
+      title="Take photo/video"
+    >
+      &#128247;
+    </button>
+    <input
+      type="file"
+      id="camera-input"
+      accept="image/*,video/*"
+      capture="environment"
+      class="hidden"
+      onchange="onCameraCapture(event)"
+    />
+    <script src="lib/peerjs.min.js"></script>
+    <script src="lib/qrcode.min.js"></script>
+    <script>
+      const CHUNK = 1048576;
+      const MAX_BUFFER = 16 * 1024 * 1024;
+      const CHUNKS_PER_BATCH = 4;
+      const RECV_BATCH_SIZE = 8;
+      const PEERJS_CFG = {
+        host: "0.peerjs.com",
+        port: 443,
+        path: "/",
+        secure: true,
+        config: {
+          iceServers: [
+            { urls: "stun:stun.cloudflare.com:3478" },
+            { urls: "stun:stun.l.google.com:19302" },
+          ],
+        },
+      };
+      let peer = null,
+        conn = null,
+        isHost = false;
+      let selectedFiles = [],
+        sentFiles = [],
+        recvBuffers = {},
+        recvMeta = {};
+      let cryptoKey = null,
+        roomPin = null,
+        pinPending = false;
+      let localECDHKeyPair = null,
+        pinFailCount = 0,
+        receivedBlobURLs = [],
+        sendThumbURLs = new Map();
+      let sendStartTime = 0,
+        sendTotalBytes = 0,
+        sendBytesSent = 0;
+      let recvStartTime = 0,
+        recvTotalBytes = 0,
+        recvBytesReceived = 0,
+        recvSpeedInterval = null;
+      let currentRoomCode = "",
+        reconnectAttempts = 0,
+        reconnectTimer = null,
+        toastTimer = null,
+        pendingSendIdx = 0;
+      const MAX_RETRIES = 5,
+        RETRY_DELAY = 100,
+        MAX_RECONNECT = 5;
+      let qrScanner = null;
+      let transferPaused = false,
+        transferCancelled = false,
+        currentSendIdx = 0,
+        currentSendProgress = 0;
+      let recvQueue = [],
+        recvProcessing = false;
+      let wakeLock = null,
+        hostPubKeyArr = null;
 
-    <div id="room-pin-setup" class="hidden">
-      <div class="divider"></div>
-      <span class="label">Room Password (Optional)</span>
-      <div class="pin-wrap">
-        <input type="tel" id="host-pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
-        <input type="tel" id="host-pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
-        <input type="tel" id="host-pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
-        <input type="tel" id="host-pin4" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this)">
-      </div>
-    </div>
-
-    <div id="room-pin-entry" class="hidden">
-      <div class="divider"></div>
-      <span class="label">Room Password Required</span>
-      <div class="pin-wrap">
-        <input type="tel" id="guest-pin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
-        <input type="tel" id="guest-pin2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
-        <input type="tel" id="guest-pin3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
-        <input type="tel" id="guest-pin4" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="-" onkeydown="onPinKey(event,this)" oninput="onPinInput(this,true)">
-      </div>
-    </div>
-
-    <div class="status">
-      <div class="dot init" id="room-dot"></div>
-      <span id="room-status-text">Initializing&hellip;</span>
-    </div>
-    <div class="fingerprint hidden" id="room-fingerprint"></div>
-
-    <div class="divider"></div>
-    <span class="label">Send Files</span>
-    <div class="dropzone" id="dropzone"
-      onclick="document.getElementById('file-input').click()"
-      ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)">
-      <input type="file" id="file-input" multiple onchange="onFilesSelected(event)">
-      <span class="dz-icon">&#128193;</span>
-      <div class="dz-text">Tap to pick files<br><span>or drag &amp; drop</span></div>
-    </div>
-    <div class="file-list" id="room-send-list"></div>
-    <div class="file-list" id="room-sent-list"></div>
-    <div id="room-send-progress" class="xfer-section hidden">
-      <div class="xfer-header">
-        <span class="label" style="margin-bottom:0">Sending</span>
-        <span class="xfer-speed"><span id="speed-val">0 B/s</span> &middot; <span id="eta-val">calculating&hellip;</span></span>
-      </div>
-      <div class="xfer-track">
-        <div class="xfer-fill xfer-fill-send" id="send-overall-fill"></div>
-      </div>
-      <div id="room-progress-items" class="xfer-file-list"></div>
-    </div>
-    <div id="room-transfer-controls" class="transfer-controls hidden">
-      <button class="btn btn-secondary" id="pause-btn" onclick="togglePause()">Pause</button>
-      <button class="btn btn-red" onclick="cancelTransfer()">Cancel</button>
-    </div>
-    <div class="mt-3">
-      <button class="btn btn-send" id="room-send-btn" onclick="sendFiles()" disabled>Send Files</button>
-    </div>
-
-    <div class="divider"></div>
-    <span class="label">Received Files</span>
-    <div id="room-recv-progress" class="xfer-section hidden">
-      <div class="xfer-header">
-        <span class="label" style="margin-bottom:0">Receiving</span>
-        <span class="xfer-speed"><span id="recv-speed-val">0 B/s</span> &middot; <span id="recv-eta-val">calculating&hellip;</span></span>
-      </div>
-      <div class="xfer-track xfer-track-recv">
-        <div class="xfer-fill xfer-fill-recv" id="recv-overall-fill"></div>
-      </div>
-      <div id="room-recv-items" class="xfer-file-list"></div>
-    </div>
-    <div class="file-list" id="room-recv-list">
-      <div class="empty">Waiting for files&hellip;</div>
-    </div>
-  </div>
-
-  <div class="footer">WebRTC peer-to-peer &middot; AES-256-GCM E2EE &middot; Files never touch servers</div>
-<div class="toast" id="toast"></div>
-</div>
-<!-- QR Scanner Modal -->
-<div class="qr-scanner-modal hidden" id="qr-scanner-modal">
-  <button class="qr-scanner-close" onclick="closeQRScanner()">&#10005;</button>
-  <div class="qr-scanner-title">Scan Room QR Code</div>
-  <div class="qr-scanner-wrap" id="qr-reader"></div>
-  <div class="scan-hint" id="scan-hint">Point your camera at a FileDrop room QR code</div>
-  <button class="qr-retry-btn hidden" id="qr-retry-btn" onclick="retryQRScanner()">Retry Camera</button>
-  <button class="qr-photo-btn" onclick="document.getElementById('qr-scan-file').click()">&#128247; Take Photo to Scan</button>
-  <input type="file" id="qr-scan-file" accept="image/*" capture="environment" class="hidden" onchange="scanQRFromFile(event)">
-  <button class="qr-close-btn" onclick="closeQRScanner()">Close Scanner</button>
-</div>
-<!-- Enlarged QR Modal -->
-<div class="qr-scanner-modal hidden" id="qr-enlarge-modal">
-  <button class="qr-scanner-close" onclick="closeEnlargedQR()">&#10005;</button>
-  <div class="qr-scanner-title">Room QR Code</div>
-  <div class="qr-modal">
-    <div class="qr-modal-inner qr-clickable" id="enlarged-qr-container" onclick="closeEnlargedQR()"></div>
-    <div class="scan-hint">Tap QR code to close</div>
-  </div>
-</div>
-<button class="camera-btn hidden" id="camera-btn" onclick="openCamera()" title="Take photo/video">&#128247;</button>
-<input type="file" id="camera-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="onCameraCapture(event)">
-<script src="lib/peerjs.min.js"></script>
-<script src="lib/qrcode.min.js"></script>
-<script>
-const CHUNK=1048576;
-const MAX_BUFFER=16*1024*1024;
-const CHUNKS_PER_BATCH=4;
-const RECV_BATCH_SIZE=8;
-const PEERJS_CFG={host:'0.peerjs.com',port:443,path:'/',secure:true,config:{iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]}};
-let peer=null,conn=null,isHost=false;
-let selectedFiles=[],sentFiles=[],recvBuffers={},recvMeta={};
-let cryptoKey=null,roomPin=null,pinPending=false;
-let localECDHKeyPair=null,pinFailCount=0,receivedBlobURLs=[],sendThumbURLs=new Map();
-let sendStartTime=0,sendTotalBytes=0,sendBytesSent=0;
-let recvStartTime=0,recvTotalBytes=0,recvBytesReceived=0,recvSpeedInterval=null;
-let currentRoomCode='',reconnectAttempts=0,reconnectTimer=null,toastTimer=null,pendingSendIdx=0;
-const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
-let qrScanner=null;
-let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
-let recvQueue=[],recvProcessing=false;
-let wakeLock=null,hostPubKeyArr=null;
-
-async function requestWakeLock(){if(!('wakeLock' in navigator))return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
-function releaseWakeLock(){if(wakeLock){try{wakeLock.release();}catch(e){}wakeLock=null;}}
-function buzz(p){if('vibrate' in navigator)navigator.vibrate(p);}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&conn&&conn.open)requestWakeLock();});
-async function pasteCode(){try{const t=await navigator.clipboard.readText();const code=extractRoomCode(t)||(t.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));if(code&&code.length===6){document.getElementById('join-code-input').value=code;}else{showToast('No room code found in clipboard');}}catch(e){showToast('Clipboard access denied');}}
-function randCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,n=>c[n%c.length]).join('')}
-function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(1)+' GB'}
-function fmtETA(s){if(s<=0)return'finishing…';const m=Math.floor(s/60);return`${m}:${Math.floor(s%60).toString().padStart(2,'0')} remaining`}
-function fileIcon(n){const e=(n.split('.').pop()||'').toLowerCase();if(['jpg','jpeg','png','gif','webp','svg','heic'].includes(e))return'\uD83D\uDDBC\uFE0F';if(['mp4','mov','avi','mkv','webm','m4v'].includes(e))return'\uD83C\uDFAC';if(['mp3','wav','flac','aac','ogg','m4a'].includes(e))return'\uD83C\uDFB5';if(e==='pdf')return'\uD83D\uDCC4';if(['zip','rar','7z','tar','gz'].includes(e))return'\uD83D\uDDDC\uFE0F';if(['js','ts','py','html','css','json','md','swift'].includes(e))return'\uD83D\uDCBB';return'\uD83D\uDCC1'}
-function safeKey(n){return n.replace(/[^a-z0-9]/gi,'_')}
-function escapeHtml(text){const div=document.createElement('div');div.textContent=text;return div.innerHTML;}
-function roomURL(code){const u=new URL(window.location.href);u.search='';u.hash='room='+code;return u.toString()}
-function show(id,animate=false){const el=document.getElementById(id);el.classList.remove('hidden');if(animate)el.classList.add('view-transition')}
-function hide(id){const el=document.getElementById(id);el.classList.add('hidden');el.classList.remove('view-transition')}
-function setDot(s){document.getElementById('room-dot').className='dot '+s}
-function setStatus(t){document.getElementById('room-status-text').textContent=t}
-
-async function computeFingerprint(hostPub,guestPub){const combined=new Uint8Array([...hostPub,...guestPub]);const hash=await crypto.subtle.digest('SHA-256',combined);const hex=Array.from(new Uint8Array(hash)).slice(0,4).map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();return hex.slice(0,4)+' '+hex.slice(4);}
-function showFingerprint(fp){const el=document.getElementById('room-fingerprint');if(!el)return;el.innerHTML=`🔑 <span class="fp-value">${fp}</span><span class="fp-hint">&#8212; verify with peer</span>`;el.classList.remove('hidden');}
-function sanitizeMime(mime){if(!mime||typeof mime!=='string')return'application/octet-stream';if(/^image\/(jpeg|png|gif|webp|svg\+xml|heic|heif|bmp|avif)$/i.test(mime))return mime;if(/^video\/(mp4|webm|ogg|quicktime|x-msvideo|x-matroska|m4v|3gpp)$/i.test(mime))return mime;if(/^audio\/(mpeg|wav|ogg|aac|flac|mp4|x-m4a|webm)$/i.test(mime))return mime;if(/^application\/(pdf|zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|gzip|json|octet-stream)$/i.test(mime))return mime;if(/^text\/(plain|markdown|csv)$/i.test(mime))return mime;return'application/octet-stream';}
-async function genECDHKeyPair(){return await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey']);}
-async function exportECDHPubKey(kp){const buf=await crypto.subtle.exportKey('raw',kp.publicKey);return Array.from(new Uint8Array(buf));}
-async function deriveSharedAESKey(priv,remotePubArr){const pub=await crypto.subtle.importKey('raw',new Uint8Array(remotePubArr),{name:'ECDH',namedCurve:'P-256'},false,[]);return await crypto.subtle.deriveKey({name:'ECDH',public:pub},priv,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
-async function encryptChunk(data,key){const iv=crypto.getRandomValues(new Uint8Array(12));const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);const out=new Uint8Array(12+enc.byteLength);out.set(iv,0);out.set(new Uint8Array(enc),12);return out.buffer;}
-async function decryptChunk(buf,key){return await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(buf,0,12)},key,new Uint8Array(buf,12));}
-async function waitForBuffer(){const dc=conn&&(conn.dataChannel||conn._dc);if(!dc)return;while(dc.bufferedAmount>MAX_BUFFER)await new Promise(r=>setTimeout(r,1));}
-function yieldControl(){return new Promise(r=>requestAnimationFrame?requestAnimationFrame(r):setTimeout(r,0));}
-
-function buildQR(containerId,code){
-  const el=document.getElementById(containerId);el.innerHTML='';
-  const size=window.innerWidth<460?160:130;
-  new QRCode(el,{text:roomURL(code),width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-}
-
-function showEnlargedQR(){
-  const code=document.getElementById('room-code-display').textContent;
-  if(code.includes('\u00B7'))return;
-  const modal=document.getElementById('qr-enlarge-modal');
-  const container=document.getElementById('enlarged-qr-container');
-  container.innerHTML='';
-  new QRCode(container,{text:roomURL(code),width:280,height:280,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-  modal.classList.remove('hidden');
-  setTimeout(()=>modal.classList.add('active'),10);
-}
-
-function closeEnlargedQR(){
-  const modal=document.getElementById('qr-enlarge-modal');
-  modal.classList.remove('active');
-  setTimeout(()=>modal.classList.add('hidden'),300);
-}
-
-function showToast(msg){
-  const toast=document.getElementById('toast');
-  toast.textContent=msg;
-  toast.classList.add('show');
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),4000);
-}
-
-function copyRoomCode(){
-  const code=document.getElementById('room-code-display').textContent;
-  const btn=document.getElementById('room-copy-btn');const orig=btn.textContent;
-  navigator.clipboard.writeText(roomURL(code)).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2000)}).catch(()=>showToast('Copy failed — share the code manually'));
-}
-function shareRoomLink(){
-  const code=document.getElementById('room-code-display').textContent;
-  if(navigator.share)navigator.share({title:'FileDrop',url:roomURL(code)});else copyRoomCode();
-}
-
-function getHostPin(){const v=id=>document.getElementById(id).value;const p=v('host-pin1')+v('host-pin2')+v('host-pin3')+v('host-pin4');return p.length===4?p:null}
-function clearGuestPin(){['guest-pin1','guest-pin2','guest-pin3','guest-pin4'].forEach(id=>document.getElementById(id).value='');document.getElementById('guest-pin1').focus()}
-function submitPin(){const v=id=>document.getElementById(id).value;const p=v('guest-pin1')+v('guest-pin2')+v('guest-pin3')+v('guest-pin4');if(p.length===4&&conn)conn.send({type:'pin',pin:p})}
-
-function onPinKey(e,el){if(e.key==='Backspace'&&!el.value){const prev=el.previousElementSibling;if(prev&&prev.tagName==='INPUT'){prev.focus();prev.select();}}}
-function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').slice(0,1);if(el.value){const next=el.nextElementSibling;if(next&&next.tagName==='INPUT'){next.focus();}else if(isGuest&&el.id==='guest-pin4')submitPin();}}
-
-function goHome(){
-  if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;hostPubKeyArr=null;releaseWakeLock();
-  const fpEl=document.getElementById('room-fingerprint');if(fpEl){fpEl.classList.add('hidden');fpEl.innerHTML='';}
-  receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
-  sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
-  selectedFiles=[];sentFiles=[];recvBuffers={};recvMeta={};recvQueue=[];recvProcessing=false;
-  transferCancelled=false;transferPaused=false;currentSendIdx=0;currentSendProgress=0;
-  sendStartTime=0;sendTotalBytes=0;sendBytesSent=0;
-  recvStartTime=0;recvTotalBytes=0;recvBytesReceived=0;if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
-  currentRoomCode='';reconnectAttempts=0;pendingSendIdx=0;clearTimeout(reconnectTimer);
-  show('view-home');hide('view-join');hide('view-room');hide('camera-btn');
-  hide('room-pin-setup');hide('room-pin-entry');
-  document.getElementById('room-send-list').innerHTML='';
-  document.getElementById('room-recv-list').innerHTML='<div class="empty">Waiting for files\u2026</div>';
-  document.getElementById('room-progress-items').innerHTML='';
-  document.getElementById('room-recv-items').innerHTML='';
-  document.getElementById('room-send-progress').classList.add('hidden');
-  document.getElementById('room-recv-progress').classList.add('hidden');
-  const sb=document.getElementById('room-send-btn');sb.disabled=true;sb.textContent='Send Files';sb.style.opacity='';sb.classList.remove('success-pulse');
-  const sf2=document.getElementById('send-overall-fill');if(sf2){sf2.style.width='0%';sf2.classList.remove('active');}
-  const rf2=document.getElementById('recv-overall-fill');if(rf2){rf2.style.width='0%';rf2.classList.remove('active');}
-  document.getElementById('join-code-input').value='';
-  document.getElementById('join-btn').disabled=false;
-  document.getElementById('room-code-display').textContent='\xB7\xB7\xB7\xB7\xB7\xB7';
-  document.getElementById('room-qr-container').innerHTML='';
-  document.getElementById('view-room').classList.remove('connected-border');
-  const sg2=document.getElementById('room-share-grid');sg2.classList.remove('collapsed');sg2.classList.add('hidden');
-  ['host-pin1','host-pin2','host-pin3','host-pin4','guest-pin1','guest-pin2','guest-pin3','guest-pin4'].forEach(id=>document.getElementById(id).value='');
-  history.replaceState({},'',window.location.pathname);
-}
-
-function enterRoom(code){
-  document.getElementById('room-code-display').textContent=code;
-  if(isHost){
-    buildQR('room-qr-container',code);
-    document.getElementById('room-share-grid').classList.remove('hidden');
-    document.getElementById('room-label').textContent='Your Room';
-  }else{
-    const sg=document.getElementById('room-share-grid');sg.classList.add('hidden');sg.classList.remove('collapsed');
-    document.getElementById('room-label').textContent='Joining Room';
-  }
-  hide('view-home');hide('view-join');show('view-room');
-}
-
-function onConnected(){
-  reconnectAttempts=0;
-  setDot('connected');setStatus('Connected \u2014 E2EE secured');
-  document.getElementById('view-room').classList.add('connected-border');
-  hide('room-pin-setup');hide('room-pin-entry');
-  show('camera-btn');updateSendBtn();
-  closeEnlargedQR();
-  requestWakeLock();
-  buzz(50);
-  document.getElementById('room-share-grid').classList.add('collapsed');
-  if(pendingSendIdx>0&&pendingSendIdx<selectedFiles.length)setTimeout(resumeSend,600);
-}
-
-function createRoom(){
-  isHost=true;
-  const code=randCode();
-  enterRoom(code);
-  show('room-pin-setup');
-  setStatus('Initializing\u2026');
-  peer=new Peer(code,PEERJS_CFG);
-  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026')});
-  peer.on('connection',async c=>{
-    if(conn&&conn.open){
-      try{c.send({type:'room-full'});c.close();}catch(e){}
-      showToast('Someone tried to join — room is occupied');
-      return;
-    }
-    conn=c;
-    conn.on('open',async()=>{
-      roomPin=getHostPin();
-      try{
-        localECDHKeyPair=await genECDHKeyPair();
-        if(!conn||!conn.open)return;
-        hostPubKeyArr=await exportECDHPubKey(localECDHKeyPair);
-        conn.send({type:'ecdh-init',pubKey:hostPubKeyArr,hasPin:!!roomPin});
-        setStatus('Exchanging keys\u2026');
-      }catch(e){
-        console.error('ECDH init failed',e);
-        setStatus('Encryption error \u2014 try reconnecting');
+      async function requestWakeLock() {
+        if (!("wakeLock" in navigator)) return;
+        try {
+          wakeLock = await navigator.wakeLock.request("screen");
+        } catch (e) {}
       }
-    });
-    conn.on('data',async d=>{
-      if(d.type==='ecdh-reply'){
-        if(d.pubKey&&localECDHKeyPair){
-          try{
-            cryptoKey=await deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey);
-            if(hostPubKeyArr)computeFingerprint(hostPubKeyArr,d.pubKey).then(showFingerprint);
-          }catch(e){
-            console.error('Host ECDH derive failed',e);
-          }
-          localECDHKeyPair=null;
+      function releaseWakeLock() {
+        if (wakeLock) {
+          try {
+            wakeLock.release();
+          } catch (e) {}
+          wakeLock = null;
         }
-        if(!cryptoKey){
-          setStatus('Encryption setup failed \u2014 ask guest to rejoin');
+      }
+      function buzz(p) {
+        if ("vibrate" in navigator) navigator.vibrate(p);
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && conn && conn.open)
+          requestWakeLock();
+      });
+      async function pasteCode() {
+        try {
+          const t = await navigator.clipboard.readText();
+          const code =
+            extractRoomCode(t) ||
+            t
+              .trim()
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, "")
+              .slice(0, 6);
+          if (code && code.length === 6) {
+            document.getElementById("join-code-input").value = code;
+          } else {
+            showToast("No room code found in clipboard");
+          }
+        } catch (e) {
+          showToast("Clipboard access denied");
+        }
+      }
+      function randCode() {
+        const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const a = new Uint32Array(6);
+        crypto.getRandomValues(a);
+        return Array.from(a, (n) => c[n % c.length]).join("");
+      }
+      function fmtSize(b) {
+        if (b < 1024) return b + " B";
+        if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
+        return (b / 1073741824).toFixed(1) + " GB";
+      }
+      function fmtETA(s) {
+        if (s <= 0) return "finishing…";
+        const m = Math.floor(s / 60);
+        return `${m}:${Math.floor(s % 60)
+          .toString()
+          .padStart(2, "0")} remaining`;
+      }
+      function fileIcon(n) {
+        const e = (n.split(".").pop() || "").toLowerCase();
+        if (["jpg", "jpeg", "png", "gif", "webp", "svg", "heic"].includes(e))
+          return "\uD83D\uDDBC\uFE0F";
+        if (["mp4", "mov", "avi", "mkv", "webm", "m4v"].includes(e))
+          return "\uD83C\uDFAC";
+        if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].includes(e))
+          return "\uD83C\uDFB5";
+        if (e === "pdf") return "\uD83D\uDCC4";
+        if (["zip", "rar", "7z", "tar", "gz"].includes(e))
+          return "\uD83D\uDDDC\uFE0F";
+        if (
+          ["js", "ts", "py", "html", "css", "json", "md", "swift"].includes(e)
+        )
+          return "\uD83D\uDCBB";
+        return "\uD83D\uDCC1";
+      }
+      function safeKey(n) {
+        return n.replace(/[^a-z0-9]/gi, "_");
+      }
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+      function roomURL(code) {
+        const u = new URL(window.location.href);
+        u.search = "";
+        u.hash = "room=" + code;
+        return u.toString();
+      }
+      function show(id, animate = false) {
+        const el = document.getElementById(id);
+        el.classList.remove("hidden");
+        if (animate) el.classList.add("view-transition");
+      }
+      function hide(id) {
+        const el = document.getElementById(id);
+        el.classList.add("hidden");
+        el.classList.remove("view-transition");
+      }
+      function setDot(s) {
+        document.getElementById("room-dot").className = "dot " + s;
+      }
+      function setStatus(t) {
+        document.getElementById("room-status-text").textContent = t;
+      }
+
+      async function computeFingerprint(hostPub, guestPub) {
+        const combined = new Uint8Array([...hostPub, ...guestPub]);
+        const hash = await crypto.subtle.digest("SHA-256", combined);
+        const hex = Array.from(new Uint8Array(hash))
+          .slice(0, 4)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")
+          .toUpperCase();
+        return hex.slice(0, 4) + " " + hex.slice(4);
+      }
+      function showFingerprint(fp) {
+        const el = document.getElementById("room-fingerprint");
+        if (!el) return;
+        el.innerHTML = `🔑 <span class="fp-value">${fp}</span><span class="fp-hint">&#8212; verify with peer</span>`;
+        el.classList.remove("hidden");
+      }
+      function sanitizeMime(mime) {
+        if (!mime || typeof mime !== "string")
+          return "application/octet-stream";
+        if (
+          /^image\/(jpeg|png|gif|webp|svg\+xml|heic|heif|bmp|avif)$/i.test(mime)
+        )
+          return mime;
+        if (
+          /^video\/(mp4|webm|ogg|quicktime|x-msvideo|x-matroska|m4v|3gpp)$/i.test(
+            mime,
+          )
+        )
+          return mime;
+        if (/^audio\/(mpeg|wav|ogg|aac|flac|mp4|x-m4a|webm)$/i.test(mime))
+          return mime;
+        if (
+          /^application\/(pdf|zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|gzip|json|octet-stream)$/i.test(
+            mime,
+          )
+        )
+          return mime;
+        if (/^text\/(plain|markdown|csv)$/i.test(mime)) return mime;
+        return "application/octet-stream";
+      }
+      async function genECDHKeyPair() {
+        return await crypto.subtle.generateKey(
+          { name: "ECDH", namedCurve: "P-256" },
+          true,
+          ["deriveKey"],
+        );
+      }
+      async function exportECDHPubKey(kp) {
+        const buf = await crypto.subtle.exportKey("raw", kp.publicKey);
+        return Array.from(new Uint8Array(buf));
+      }
+      async function deriveSharedAESKey(priv, remotePubArr) {
+        const pub = await crypto.subtle.importKey(
+          "raw",
+          new Uint8Array(remotePubArr),
+          { name: "ECDH", namedCurve: "P-256" },
+          false,
+          [],
+        );
+        return await crypto.subtle.deriveKey(
+          { name: "ECDH", public: pub },
+          priv,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt", "decrypt"],
+        );
+      }
+      async function encryptChunk(data, key) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          key,
+          data,
+        );
+        const out = new Uint8Array(12 + enc.byteLength);
+        out.set(iv, 0);
+        out.set(new Uint8Array(enc), 12);
+        return out.buffer;
+      }
+      async function decryptChunk(buf, key) {
+        return await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: new Uint8Array(buf, 0, 12) },
+          key,
+          new Uint8Array(buf, 12),
+        );
+      }
+      async function waitForBuffer() {
+        const dc = conn && (conn.dataChannel || conn._dc);
+        if (!dc) return;
+        while (dc.bufferedAmount > MAX_BUFFER)
+          await new Promise((r) => setTimeout(r, 1));
+      }
+      function yieldControl() {
+        return new Promise((r) =>
+          requestAnimationFrame ? requestAnimationFrame(r) : setTimeout(r, 0),
+        );
+      }
+
+      function buildQR(containerId, code) {
+        const el = document.getElementById(containerId);
+        el.innerHTML = "";
+        const size = window.innerWidth < 460 ? 160 : 130;
+        new QRCode(el, {
+          text: roomURL(code),
+          width: size,
+          height: size,
+          colorDark: "#000",
+          colorLight: "#fff",
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+      }
+
+      function showEnlargedQR() {
+        const code = document.getElementById("room-code-display").textContent;
+        if (code.includes("\u00B7")) return;
+        const modal = document.getElementById("qr-enlarge-modal");
+        const container = document.getElementById("enlarged-qr-container");
+        container.innerHTML = "";
+        new QRCode(container, {
+          text: roomURL(code),
+          width: 280,
+          height: 280,
+          colorDark: "#000",
+          colorLight: "#fff",
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+        modal.classList.remove("hidden");
+        setTimeout(() => modal.classList.add("active"), 10);
+      }
+
+      function closeEnlargedQR() {
+        const modal = document.getElementById("qr-enlarge-modal");
+        modal.classList.remove("active");
+        setTimeout(() => modal.classList.add("hidden"), 300);
+      }
+
+      function showToast(msg) {
+        const toast = document.getElementById("toast");
+        toast.textContent = msg;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 4000);
+      }
+
+      function copyRoomCode() {
+        const code = document.getElementById("room-code-display").textContent;
+        const btn = document.getElementById("room-copy-btn");
+        const orig = btn.textContent;
+        navigator.clipboard
+          .writeText(roomURL(code))
+          .then(() => {
+            btn.textContent = "Copied!";
+            setTimeout(() => (btn.textContent = orig), 2000);
+          })
+          .catch(() => showToast("Copy failed — share the code manually"));
+      }
+      function shareRoomLink() {
+        const code = document.getElementById("room-code-display").textContent;
+        if (navigator.share)
+          navigator.share({ title: "FileDrop", url: roomURL(code) });
+        else copyRoomCode();
+      }
+
+      function getHostPin() {
+        const v = (id) => document.getElementById(id).value;
+        const p =
+          v("host-pin1") + v("host-pin2") + v("host-pin3") + v("host-pin4");
+        return p.length === 4 ? p : null;
+      }
+      function clearGuestPin() {
+        ["guest-pin1", "guest-pin2", "guest-pin3", "guest-pin4"].forEach(
+          (id) => (document.getElementById(id).value = ""),
+        );
+        document.getElementById("guest-pin1").focus();
+      }
+      function submitPin() {
+        const v = (id) => document.getElementById(id).value;
+        const p =
+          v("guest-pin1") + v("guest-pin2") + v("guest-pin3") + v("guest-pin4");
+        if (p.length === 4 && conn) conn.send({ type: "pin", pin: p });
+      }
+
+      function onPinKey(e, el) {
+        if (e.key === "Backspace" && !el.value) {
+          const prev = el.previousElementSibling;
+          if (prev && prev.tagName === "INPUT") {
+            prev.focus();
+            prev.select();
+          }
+        }
+      }
+      function onPinInput(el, isGuest = false) {
+        el.value = el.value.replace(/[^0-9]/g, "").slice(0, 1);
+        if (el.value) {
+          const next = el.nextElementSibling;
+          if (next && next.tagName === "INPUT") {
+            next.focus();
+          } else if (isGuest && el.id === "guest-pin4") submitPin();
+        }
+      }
+
+      function goHome() {
+        if (peer) {
+          try {
+            peer.destroy();
+          } catch (e) {}
+          peer = null;
+        }
+        conn = null;
+        isHost = false;
+        cryptoKey = null;
+        roomPin = null;
+        pinPending = false;
+        localECDHKeyPair = null;
+        pinFailCount = 0;
+        hostPubKeyArr = null;
+        releaseWakeLock();
+        const fpEl = document.getElementById("room-fingerprint");
+        if (fpEl) {
+          fpEl.classList.add("hidden");
+          fpEl.innerHTML = "";
+        }
+        receivedBlobURLs.forEach((u) => {
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {}
+        });
+        receivedBlobURLs = [];
+        sendThumbURLs.forEach((u) => {
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {}
+        });
+        sendThumbURLs.clear();
+        selectedFiles = [];
+        sentFiles = [];
+        recvBuffers = {};
+        recvMeta = {};
+        recvQueue = [];
+        recvProcessing = false;
+        transferCancelled = false;
+        transferPaused = false;
+        currentSendIdx = 0;
+        currentSendProgress = 0;
+        sendStartTime = 0;
+        sendTotalBytes = 0;
+        sendBytesSent = 0;
+        recvStartTime = 0;
+        recvTotalBytes = 0;
+        recvBytesReceived = 0;
+        if (recvSpeedInterval) {
+          clearInterval(recvSpeedInterval);
+          recvSpeedInterval = null;
+        }
+        currentRoomCode = "";
+        reconnectAttempts = 0;
+        pendingSendIdx = 0;
+        clearTimeout(reconnectTimer);
+        show("view-home");
+        hide("view-join");
+        hide("view-room");
+        hide("camera-btn");
+        hide("room-pin-setup");
+        hide("room-pin-entry");
+        document.getElementById("room-send-list").innerHTML = "";
+        document.getElementById("room-recv-list").innerHTML =
+          '<div class="empty">Waiting for files\u2026</div>';
+        document.getElementById("room-progress-items").innerHTML = "";
+        document.getElementById("room-recv-items").innerHTML = "";
+        document.getElementById("room-send-progress").classList.add("hidden");
+        document.getElementById("room-recv-progress").classList.add("hidden");
+        const sb = document.getElementById("room-send-btn");
+        sb.disabled = true;
+        sb.textContent = "Send Files";
+        sb.style.opacity = "";
+        sb.classList.remove("success-pulse");
+        const sf2 = document.getElementById("send-overall-fill");
+        if (sf2) {
+          sf2.style.width = "0%";
+          sf2.classList.remove("active");
+        }
+        const rf2 = document.getElementById("recv-overall-fill");
+        if (rf2) {
+          rf2.style.width = "0%";
+          rf2.classList.remove("active");
+        }
+        document.getElementById("join-code-input").value = "";
+        document.getElementById("join-btn").disabled = false;
+        document.getElementById("room-code-display").textContent =
+          "\xB7\xB7\xB7\xB7\xB7\xB7";
+        document.getElementById("room-qr-container").innerHTML = "";
+        document
+          .getElementById("view-room")
+          .classList.remove("connected-border");
+        const sg2 = document.getElementById("room-share-grid");
+        sg2.classList.remove("collapsed");
+        sg2.classList.add("hidden");
+        [
+          "host-pin1",
+          "host-pin2",
+          "host-pin3",
+          "host-pin4",
+          "guest-pin1",
+          "guest-pin2",
+          "guest-pin3",
+          "guest-pin4",
+        ].forEach((id) => (document.getElementById(id).value = ""));
+        history.replaceState({}, "", window.location.pathname);
+      }
+
+      function enterRoom(code) {
+        document.getElementById("room-code-display").textContent = code;
+        if (isHost) {
+          buildQR("room-qr-container", code);
+          document.getElementById("room-share-grid").classList.remove("hidden");
+          document.getElementById("room-label").textContent = "Your Room";
+        } else {
+          const sg = document.getElementById("room-share-grid");
+          sg.classList.add("hidden");
+          sg.classList.remove("collapsed");
+          document.getElementById("room-label").textContent = "Joining Room";
+        }
+        hide("view-home");
+        hide("view-join");
+        show("view-room");
+      }
+
+      function onConnected() {
+        reconnectAttempts = 0;
+        setDot("connected");
+        setStatus("Connected \u2014 E2EE secured");
+        document.getElementById("view-room").classList.add("connected-border");
+        hide("room-pin-setup");
+        hide("room-pin-entry");
+        show("camera-btn");
+        updateSendBtn();
+        closeEnlargedQR();
+        requestWakeLock();
+        buzz(50);
+        document.getElementById("room-share-grid").classList.add("collapsed");
+        if (pendingSendIdx > 0 && pendingSendIdx < selectedFiles.length)
+          setTimeout(resumeSend, 600);
+      }
+
+      function createRoom() {
+        isHost = true;
+        const code = randCode();
+        enterRoom(code);
+        show("room-pin-setup");
+        setStatus("Initializing\u2026");
+        peer = new Peer(code, PEERJS_CFG);
+        peer.on("open", () => {
+          setDot("waiting");
+          setStatus("Waiting for peer\u2026");
+        });
+        peer.on("connection", async (c) => {
+          if (conn && conn.open) {
+            try {
+              c.send({ type: "room-full" });
+              c.close();
+            } catch (e) {}
+            showToast("Someone tried to join — room is occupied");
+            return;
+          }
+          conn = c;
+          conn.on("open", async () => {
+            roomPin = getHostPin();
+            try {
+              localECDHKeyPair = await genECDHKeyPair();
+              if (!conn || !conn.open) return;
+              hostPubKeyArr = await exportECDHPubKey(localECDHKeyPair);
+              conn.send({
+                type: "ecdh-init",
+                pubKey: hostPubKeyArr,
+                hasPin: !!roomPin,
+              });
+              setStatus("Exchanging keys\u2026");
+            } catch (e) {
+              console.error("ECDH init failed", e);
+              setStatus("Encryption error \u2014 try reconnecting");
+            }
+          });
+          conn.on("data", async (d) => {
+            if (d.type === "ecdh-reply") {
+              if (d.pubKey && localECDHKeyPair) {
+                try {
+                  cryptoKey = await deriveSharedAESKey(
+                    localECDHKeyPair.privateKey,
+                    d.pubKey,
+                  );
+                  if (hostPubKeyArr)
+                    computeFingerprint(hostPubKeyArr, d.pubKey).then(
+                      showFingerprint,
+                    );
+                } catch (e) {
+                  console.error("Host ECDH derive failed", e);
+                }
+                localECDHKeyPair = null;
+              }
+              if (!cryptoKey) {
+                setStatus("Encryption setup failed \u2014 ask guest to rejoin");
+                return;
+              }
+              if (!roomPin) onConnected();
+              else setStatus("Waiting for password\u2026");
+            } else if (d.type === "pin") {
+              if (d.pin === roomPin) {
+                pinFailCount = 0;
+                conn.send({ type: "pin-ok" });
+                onConnected();
+              } else {
+                pinFailCount++;
+                if (pinFailCount >= 3) {
+                  conn.send({ type: "pin-fail" });
+                  setStatus("Too many wrong passwords \u2014 disconnecting");
+                  setTimeout(() => {
+                    if (conn) {
+                      try {
+                        conn.close();
+                      } catch (e) {}
+                    }
+                    conn = null;
+                    pinFailCount = 0;
+                    setDot("waiting");
+                    setStatus("Waiting for peer\u2026");
+                  }, 500);
+                } else {
+                  conn.send({ type: "pin-fail" });
+                  setStatus(
+                    "Wrong password \u2014 waiting\u2026 (" +
+                      (3 - pinFailCount) +
+                      " left)",
+                  );
+                }
+              }
+            } else await handleIncoming(d);
+          });
+          conn.on("close", () => {
+            setDot("waiting");
+            setStatus("Peer disconnected");
+            conn = null;
+            cryptoKey = null;
+            localECDHKeyPair = null;
+            releaseWakeLock();
+            updateSendBtn();
+            document
+              .getElementById("room-share-grid")
+              .classList.remove("collapsed");
+          });
+          conn.on("error", () => {
+            setDot("error");
+            setStatus("Connection error");
+          });
+        });
+        peer.on("error", (e) => {
+          setDot("error");
+          setStatus("Error: " + e.type);
+        });
+      }
+
+      function showJoin() {
+        hide("view-home");
+        show("view-join");
+        document.getElementById("join-code-input").focus();
+      }
+
+      function joinRoom(autoCode) {
+        const code = (
+          autoCode || document.getElementById("join-code-input").value
+        )
+          .trim()
+          .toUpperCase();
+        if (code.length !== 6) return;
+        document.getElementById("join-btn").disabled = true;
+        document.getElementById("join-dot").className = "dot waiting";
+        document.getElementById("join-status-text").textContent =
+          "Connecting\u2026";
+        isHost = false;
+        currentRoomCode = code;
+        reconnectAttempts = 0;
+        enterRoom(code);
+        setStatus("Connecting\u2026");
+        setDot("waiting");
+        if (peer) {
+          try {
+            peer.destroy();
+          } catch (e) {}
+        }
+        peer = new Peer(PEERJS_CFG);
+        peer.on("open", () => doConnect(code));
+        peer.on("error", (e) => {
+          setDot("error");
+          setStatus("Error: " + e.type);
+        });
+      }
+
+      function doConnect(code) {
+        conn = peer.connect(code, { reliable: true });
+        conn.on("open", () => setStatus("Securing channel\u2026"));
+        conn.on("data", async (d) => {
+          if (d.type === "ecdh-init") {
+            if (!d.pubKey) {
+              setStatus("Host does not support encryption");
+              if (conn)
+                try {
+                  conn.close();
+                } catch (_) {}
+              return;
+            }
+            try {
+              localECDHKeyPair = await genECDHKeyPair();
+              if (!conn || !conn.open) return;
+              const [sharedKey, pubKeyArr] = await Promise.all([
+                deriveSharedAESKey(localECDHKeyPair.privateKey, d.pubKey),
+                exportECDHPubKey(localECDHKeyPair),
+              ]);
+              cryptoKey = sharedKey;
+              conn.send({ type: "ecdh-reply", pubKey: pubKeyArr });
+              computeFingerprint(d.pubKey, pubKeyArr).then(showFingerprint);
+              localECDHKeyPair = null;
+            } catch (e) {
+              console.error("Guest ECDH failed", e);
+              setStatus("Encryption error — try reconnecting");
+              return;
+            }
+            if (!cryptoKey) {
+              setStatus("Encryption setup failed — try reconnecting");
+              return;
+            }
+            if (d.hasPin) {
+              pinPending = true;
+              show("room-pin-entry");
+              clearGuestPin();
+              setStatus("Enter room password");
+            } else onConnected();
+          } else if (d.type === "pin-ok") {
+            pinPending = false;
+            onConnected();
+          } else if (d.type === "pin-fail") {
+            clearGuestPin();
+            setStatus("Wrong password \u2014 try again");
+          } else if (d.type === "room-full") {
+            setDot("error");
+            setStatus("Room is full \u2014 try a different room");
+            document.getElementById("join-btn").disabled = false;
+          } else await handleIncoming(d);
+        });
+        conn.on("close", () => {
+          cryptoKey = null;
+          localECDHKeyPair = null;
+          releaseWakeLock();
+          scheduleReconnect();
+        });
+        conn.on("error", () => {
+          scheduleReconnect();
+        });
+      }
+
+      function scheduleReconnect() {
+        if (!currentRoomCode || reconnectAttempts >= MAX_RECONNECT) {
+          setDot("error");
+          setStatus("Connection lost");
           return;
         }
-        if(!roomPin)onConnected();
-        else setStatus('Waiting for password\u2026');
-      } else if(d.type==='pin'){
-        if(d.pin===roomPin){
-          pinFailCount=0;
-          conn.send({type:'pin-ok'});
-          onConnected();
-        }else{
-          pinFailCount++;
-          if(pinFailCount>=3){
-            conn.send({type:'pin-fail'});
-            setStatus('Too many wrong passwords \u2014 disconnecting');
-            setTimeout(()=>{
-              if(conn){
-                try{
-                  conn.close();
-                }catch(e){}
-              }
-              conn=null;
-              pinFailCount=0;
-              setDot('waiting');
-              setStatus('Waiting for peer\u2026');
-            },500);
-          }else{
-            conn.send({type:'pin-fail'});
-            setStatus('Wrong password \u2014 waiting\u2026 ('+(3-pinFailCount)+' left)');
+        reconnectAttempts++;
+        const delay = Math.min(1500 * reconnectAttempts, 8000);
+        setDot("waiting");
+        setStatus(`Reconnecting\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => {
+          if (peer && !peer.destroyed) doConnect(currentRoomCode);
+        }, delay);
+      }
+
+      async function resumeSend() {
+        if (!conn || pendingSendIdx >= selectedFiles.length) return;
+        if (!cryptoKey) return;
+        transferCancelled = false;
+        transferPaused = false;
+        show("room-send-progress");
+        const btn = document.getElementById("room-send-btn");
+        btn.disabled = true;
+        sendStartTime = Date.now();
+        sendBytesSent = 0;
+        sendTotalBytes = selectedFiles
+          .slice(pendingSendIdx)
+          .reduce((a, f) => a + f.size, 0);
+        const interval = setInterval(updateSpeed, 500);
+        for (let i = pendingSendIdx; i < selectedFiles.length; i++) {
+          pendingSendIdx = i;
+          await sendOneFile(selectedFiles[i], i);
+        }
+        clearInterval(interval);
+        pendingSendIdx = selectedFiles.length;
+        document.getElementById("speed-val").textContent = "0 B/s";
+        document.getElementById("eta-val").textContent = "done";
+        btn.textContent = "\u2713 All Sent";
+        btn.style.opacity = ".6";
+      }
+
+      function onDragOver(e) {
+        e.preventDefault();
+        document.getElementById("dropzone").classList.add("dragover");
+      }
+      function onDragLeave() {
+        document.getElementById("dropzone").classList.remove("dragover");
+      }
+      function onDrop(e) {
+        e.preventDefault();
+        document.getElementById("dropzone").classList.remove("dragover");
+        addFiles([...e.dataTransfer.files]);
+      }
+      function onFilesSelected(e) {
+        addFiles([...e.target.files]);
+        e.target.value = "";
+      }
+      function addFiles(files) {
+        files.forEach((f) => {
+          if (
+            !selectedFiles.some((x) => x.name === f.name && x.size === f.size)
+          )
+            selectedFiles.push(f);
+        });
+        renderSendList();
+        updateSendBtn();
+      }
+      function removeFile(i) {
+        const f = selectedFiles[i];
+        const k = f.name + f.size;
+        if (sendThumbURLs.has(k)) {
+          URL.revokeObjectURL(sendThumbURLs.get(k));
+          sendThumbURLs.delete(k);
+        }
+        selectedFiles.splice(i, 1);
+        renderSendList();
+        updateSendBtn();
+      }
+      function deleteSentFile(i) {
+        const f = sentFiles[i];
+        if (!f) return;
+        sentFiles.splice(i, 1);
+        renderSendList();
+        if (conn && conn.open)
+          conn.send({ type: "del", name: f.name, size: f.size });
+      }
+      function getThumbURL(f) {
+        const k = f.name + f.size;
+        if (!sendThumbURLs.has(k)) sendThumbURLs.set(k, URL.createObjectURL(f));
+        return sendThumbURLs.get(k);
+      }
+      function renderSendList() {
+        const sendWrap = document.getElementById("room-send-list");
+        const sentWrap = document.getElementById("room-sent-list");
+        sendWrap.innerHTML = selectedFiles
+          .map((f, i) => {
+            const isImg = f.type.startsWith("image/");
+            const safeName = escapeHtml(f.name);
+            const icon = isImg
+              ? `<img src="${getThumbURL(f)}" class="fi-thumb" alt="">`
+              : `<span>${fileIcon(f.name)}</span>`;
+            return `<div class="file-item file-item-enter" style="animation-delay:${i * 50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`;
+          })
+          .join("");
+        sentWrap.innerHTML = sentFiles
+          .map((f, i) => {
+            const safeName = escapeHtml(f.name);
+            return `<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`;
+          })
+          .join("");
+      }
+      function updateSendBtn() {
+        const ready =
+          conn && !!cryptoKey && !pinPending && selectedFiles.length > 0;
+        const btn = document.getElementById("room-send-btn");
+        btn.disabled = !ready;
+        btn.textContent = ready
+          ? "Send Files"
+          : conn && !cryptoKey
+            ? "Securing\u2026"
+            : "Send Files";
+      }
+
+      function updateSpeed() {
+        const elapsed = (Date.now() - sendStartTime) / 1000;
+        if (elapsed < 0.5) return;
+        const speed = sendBytesSent / elapsed;
+        const remaining = (sendTotalBytes - sendBytesSent) / Math.max(speed, 1);
+        document.getElementById("speed-val").textContent =
+          fmtSize(speed) + "/s";
+        document.getElementById("eta-val").textContent = fmtETA(remaining);
+        const pct =
+          sendTotalBytes > 0
+            ? Math.min(100, Math.round((sendBytesSent / sendTotalBytes) * 100))
+            : 0;
+        const fill = document.getElementById("send-overall-fill");
+        if (fill) {
+          fill.style.width = pct + "%";
+          fill.classList.toggle("active", pct > 0 && pct < 100);
+        }
+      }
+
+      async function sendFiles() {
+        if (!conn || !selectedFiles.length || pinPending) return;
+        if (!cryptoKey) return;
+        transferPaused = false;
+        transferCancelled = false;
+        const btn = document.getElementById("room-send-btn");
+        btn.disabled = true;
+        const controls = document.getElementById("room-transfer-controls");
+        const pauseBtn = document.getElementById("pause-btn");
+        if (controls) controls.classList.remove("hidden");
+        if (pauseBtn) pauseBtn.textContent = "Pause";
+        show("room-send-progress");
+        sendStartTime = Date.now();
+        sendTotalBytes = selectedFiles.reduce((a, f) => a + f.size, 0);
+        sendBytesSent = 0;
+        const interval = setInterval(updateSpeed, 500);
+        const wrap = document.getElementById("room-progress-items");
+        wrap.innerHTML = "";
+        selectedFiles.forEach((f, i) => {
+          const safeName = escapeHtml(f.name);
+          wrap.innerHTML += `<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div>`;
+        });
+        pendingSendIdx = 0;
+        for (let i = 0; i < selectedFiles.length; i++) {
+          if (transferCancelled) break;
+          pendingSendIdx = i;
+          currentSendIdx = i;
+          currentSendProgress = 0;
+          await sendOneFile(selectedFiles[i], i);
+        }
+        if (!transferCancelled) pendingSendIdx = selectedFiles.length;
+        clearInterval(interval);
+        if (controls) controls.classList.add("hidden");
+        if (transferCancelled) {
+          btn.textContent = "Cancelled";
+          btn.style.opacity = ".6";
+          document.getElementById("speed-val").textContent = "0 B/s";
+          document.getElementById("eta-val").textContent = "cancelled";
+          const sfc = document.getElementById("send-overall-fill");
+          if (sfc) {
+            sfc.style.width = "0%";
+            sfc.classList.remove("active");
+          }
+        } else {
+          document.getElementById("speed-val").textContent = "0 B/s";
+          document.getElementById("eta-val").textContent = "done";
+          btn.textContent = "\u2713 All Sent";
+          btn.style.opacity = ".6";
+          btn.classList.add("success-pulse");
+          buzz([100, 50, 100]);
+          const sfd = document.getElementById("send-overall-fill");
+          if (sfd) {
+            sfd.style.width = "100%";
+            sfd.classList.remove("active");
+            setTimeout(() => {
+              sfd.style.width = "0%";
+            }, 1500);
           }
         }
-      } else await handleIncoming(d);
-    });
-    conn.on('close',()=>{
-      setDot('waiting');
-      setStatus('Peer disconnected');
-      conn=null;
-      cryptoKey=null;
-      localECDHKeyPair=null;
-      releaseWakeLock();
-      updateSendBtn();
-      document.getElementById('room-share-grid').classList.remove('collapsed');
-    });
-    conn.on('error',()=>{
-      setDot('error');
-      setStatus('Connection error')
-    });
-  });
-  peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
-}
-
-function showJoin(){hide('view-home');show('view-join');document.getElementById('join-code-input').focus()}
-
-function joinRoom(autoCode){
-  const code=(autoCode||document.getElementById('join-code-input').value).trim().toUpperCase();
-  if(code.length!==6)return;
-  document.getElementById('join-btn').disabled=true;
-  document.getElementById('join-dot').className='dot waiting';
-  document.getElementById('join-status-text').textContent='Connecting\u2026';
-  isHost=false;currentRoomCode=code;reconnectAttempts=0;
-  enterRoom(code);
-  setStatus('Connecting\u2026');setDot('waiting');
-  if(peer){try{peer.destroy()}catch(e){}}
-  peer=new Peer(PEERJS_CFG);
-  peer.on('open',()=>doConnect(code));
-  peer.on('error',e=>{setDot('error');setStatus('Error: '+e.type)});
-}
-
-function doConnect(code){
-  conn=peer.connect(code,{reliable:true});
-  conn.on('open',()=>setStatus('Securing channel\u2026'));
-  conn.on('data',async d=>{
-    if(d.type==='ecdh-init'){
-      if(!d.pubKey){setStatus('Host does not support encryption');if(conn)try{conn.close();}catch(_){}return;}
-      try{localECDHKeyPair=await genECDHKeyPair();if(!conn||!conn.open)return;const[sharedKey,pubKeyArr]=await Promise.all([deriveSharedAESKey(localECDHKeyPair.privateKey,d.pubKey),exportECDHPubKey(localECDHKeyPair)]);cryptoKey=sharedKey;conn.send({type:'ecdh-reply',pubKey:pubKeyArr});computeFingerprint(d.pubKey,pubKeyArr).then(showFingerprint);localECDHKeyPair=null;}catch(e){console.error('Guest ECDH failed',e);setStatus('Encryption error — try reconnecting');return;}
-      if(!cryptoKey){setStatus('Encryption setup failed — try reconnecting');return;}
-      if(d.hasPin){pinPending=true;show('room-pin-entry');clearGuestPin();setStatus('Enter room password');}
-      else onConnected();
-    } else if(d.type==='pin-ok'){pinPending=false;onConnected();}
-    else if(d.type==='pin-fail'){clearGuestPin();setStatus('Wrong password \u2014 try again');}
-    else if(d.type==='room-full'){setDot('error');setStatus('Room is full \u2014 try a different room');document.getElementById('join-btn').disabled=false;}
-    else await handleIncoming(d);
-  });
-  conn.on('close',()=>{cryptoKey=null;localECDHKeyPair=null;releaseWakeLock();scheduleReconnect();});
-  conn.on('error',()=>{scheduleReconnect();});
-}
-
-function scheduleReconnect(){
-  if(!currentRoomCode||reconnectAttempts>=MAX_RECONNECT){setDot('error');setStatus('Connection lost');return;}
-  reconnectAttempts++;
-  const delay=Math.min(1500*reconnectAttempts,8000);
-  setDot('waiting');setStatus(`Reconnecting\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
-  clearTimeout(reconnectTimer);
-  reconnectTimer=setTimeout(()=>{if(peer&&!peer.destroyed)doConnect(currentRoomCode);},delay);
-}
-
-async function resumeSend(){
-  if(!conn||pendingSendIdx>=selectedFiles.length)return;
-  if(!cryptoKey)return;
-  transferCancelled=false;transferPaused=false;
-  show('room-send-progress');
-  const btn=document.getElementById('room-send-btn');btn.disabled=true;
-  sendStartTime=Date.now();sendBytesSent=0;
-  sendTotalBytes=selectedFiles.slice(pendingSendIdx).reduce((a,f)=>a+f.size,0);
-  const interval=setInterval(updateSpeed,500);
-  for(let i=pendingSendIdx;i<selectedFiles.length;i++){pendingSendIdx=i;await sendOneFile(selectedFiles[i],i);}
-  clearInterval(interval);pendingSendIdx=selectedFiles.length;
-  document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
-  btn.textContent='\u2713 All Sent';btn.style.opacity='.6';
-}
-
-function onDragOver(e){e.preventDefault();document.getElementById('dropzone').classList.add('dragover')}
-function onDragLeave(){document.getElementById('dropzone').classList.remove('dragover')}
-function onDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('dragover');addFiles([...e.dataTransfer.files])}
-function onFilesSelected(e){addFiles([...e.target.files]);e.target.value=''}
-function addFiles(files){files.forEach(f=>{if(!selectedFiles.some(x=>x.name===f.name&&x.size===f.size))selectedFiles.push(f)});renderSendList();updateSendBtn()}
-function removeFile(i){const f=selectedFiles[i];const k=f.name+f.size;if(sendThumbURLs.has(k)){URL.revokeObjectURL(sendThumbURLs.get(k));sendThumbURLs.delete(k);}selectedFiles.splice(i,1);renderSendList();updateSendBtn()}
-function deleteSentFile(i){const f=sentFiles[i];if(!f)return;sentFiles.splice(i,1);renderSendList();if(conn&&conn.open)conn.send({type:'del',name:f.name,size:f.size});}
-function getThumbURL(f){const k=f.name+f.size;if(!sendThumbURLs.has(k))sendThumbURLs.set(k,URL.createObjectURL(f));return sendThumbURLs.get(k);}
-function renderSendList(){const sendWrap=document.getElementById('room-send-list');const sentWrap=document.getElementById('room-sent-list');sendWrap.innerHTML=selectedFiles.map((f,i)=>{const isImg=f.type.startsWith('image/');const safeName=escapeHtml(f.name);const icon=isImg?`<img src="${getThumbURL(f)}" class="fi-thumb" alt="">`:`<span>${fileIcon(f.name)}</span>`;return`<div class="file-item file-item-enter" style="animation-delay:${i*50}ms">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="removeFile(${i})" aria-label="Remove">\u2715</button></div>`}).join('');sentWrap.innerHTML=sentFiles.map((f,i)=>{const safeName=escapeHtml(f.name);return`<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`}).join('')}
-function updateSendBtn(){const ready=conn&&!!cryptoKey&&!pinPending&&selectedFiles.length>0;const btn=document.getElementById('room-send-btn');btn.disabled=!ready;btn.textContent=ready?'Send Files':(conn&&!cryptoKey?'Securing\u2026':'Send Files')}
-
-function updateSpeed(){
-  const elapsed=(Date.now()-sendStartTime)/1000;if(elapsed<0.5)return;
-  const speed=sendBytesSent/elapsed;const remaining=(sendTotalBytes-sendBytesSent)/Math.max(speed,1);
-  document.getElementById('speed-val').textContent=fmtSize(speed)+'/s';
-  document.getElementById('eta-val').textContent=fmtETA(remaining);
-  const pct=sendTotalBytes>0?Math.min(100,Math.round(sendBytesSent/sendTotalBytes*100)):0;
-  const fill=document.getElementById('send-overall-fill');
-  if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
-}
-
-async function sendFiles(){
-  if(!conn||!selectedFiles.length||pinPending)return;
-  if(!cryptoKey)return;
-  transferPaused=false;transferCancelled=false;
-  const btn=document.getElementById('room-send-btn');btn.disabled=true;
-  const controls=document.getElementById('room-transfer-controls');
-  const pauseBtn=document.getElementById('pause-btn');
-  if(controls)controls.classList.remove('hidden');
-  if(pauseBtn)pauseBtn.textContent='Pause';
-  show('room-send-progress');
-  sendStartTime=Date.now();sendTotalBytes=selectedFiles.reduce((a,f)=>a+f.size,0);sendBytesSent=0;
-  const interval=setInterval(updateSpeed,500);
-  const wrap=document.getElementById('room-progress-items');wrap.innerHTML='';
-  selectedFiles.forEach((f,i)=>{const safeName=escapeHtml(f.name);wrap.innerHTML+=`<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="pct${i}">0%</span><span id="retry${i}" class="retry-badge hidden"></span></div>`});
-  pendingSendIdx=0;
-  for(let i=0;i<selectedFiles.length;i++){
-    if(transferCancelled)break;
-    pendingSendIdx=i;currentSendIdx=i;currentSendProgress=0;
-    await sendOneFile(selectedFiles[i],i);
-  }
-  if(!transferCancelled)pendingSendIdx=selectedFiles.length;
-  clearInterval(interval);
-  if(controls)controls.classList.add('hidden');
-  if(transferCancelled){
-    btn.textContent='Cancelled';btn.style.opacity='.6';
-    document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='cancelled';
-    const sfc=document.getElementById('send-overall-fill');if(sfc){sfc.style.width='0%';sfc.classList.remove('active');}
-  }else{
-    document.getElementById('speed-val').textContent='0 B/s';document.getElementById('eta-val').textContent='done';
-    btn.textContent='\u2713 All Sent';btn.style.opacity='.6';btn.classList.add('success-pulse');buzz([100,50,100]);
-    const sfd=document.getElementById('send-overall-fill');if(sfd){sfd.style.width='100%';sfd.classList.remove('active');setTimeout(()=>{sfd.style.width='0%';},1500);}
-  }
-}
-
-async function sendOneFile(file,idx){
-  const totalChunks=Math.ceil(file.size/CHUNK)||1;
-  if(!conn||!conn.open||transferCancelled)return;
-  const startChunk=currentSendProgress>0?Math.floor(currentSendProgress*totalChunks/100):0;
-  if(!sentFiles.some(s=>s.name===file.name&&s.size===file.size))sentFiles.push(file);
-  renderSendList();
-  conn.send({type:'meta',name:file.name,size:file.size,mime:file.type,totalChunks,startChunk});
-  let batchCount=0;
-  for(let sent=startChunk;sent<totalChunks;sent++){
-    if(transferCancelled)return;
-    while(transferPaused&&conn&&conn.open&&!transferCancelled)await new Promise(r=>setTimeout(r,100));
-    if(transferCancelled||!conn||!conn.open)return;
-    const start=sent*CHUNK;
-    const chunkBuf=await file.slice(start,Math.min(start+CHUNK,file.size)).arrayBuffer();
-    sendBytesSent+=chunkBuf.byteLength;
-    let retries=0;
-    while(true){
-      try{
-        if(!conn||!conn.open||transferCancelled)return;
-        if(batchCount===0)await waitForBuffer();
-        batchCount=(batchCount+1)%CHUNKS_PER_BATCH;
-        let d;
-        d=new Uint8Array(await encryptChunk(chunkBuf,cryptoKey));
-        conn.send({type:'b',i:sent,d});
-        currentSendProgress=Math.round((sent+1)/totalChunks*100);
-        updateProg(idx,currentSendProgress,sent+1===totalChunks);
-        break;
-      }catch(e){
-        if(transferCancelled||!conn||!conn.open)return;
-        retries++;if(retries>MAX_RETRIES)return;
-        const badge=document.getElementById('retry'+idx);if(badge){badge.textContent='retry '+retries;badge.classList.remove('hidden');}
-        await new Promise(r=>setTimeout(r,RETRY_DELAY*Math.min(retries,3)));
-        batchCount=0;
       }
-    }
-    if(sent%16===0)await yieldControl();
-  }
-  currentSendProgress=0;
-}
 
-function togglePause(){
-  transferPaused=!transferPaused;
-  const btn=document.getElementById('pause-btn');
-  btn.textContent=transferPaused?'Resume':'Pause';
-  document.getElementById('eta-val').textContent=transferPaused?'paused':'resuming...';
-}
+      async function sendOneFile(file, idx) {
+        const totalChunks = Math.ceil(file.size / CHUNK) || 1;
+        if (!conn || !conn.open || transferCancelled) return;
+        const startChunk =
+          currentSendProgress > 0
+            ? Math.floor((currentSendProgress * totalChunks) / 100)
+            : 0;
+        if (
+          !sentFiles.some((s) => s.name === file.name && s.size === file.size)
+        )
+          sentFiles.push(file);
+        renderSendList();
+        conn.send({
+          type: "meta",
+          name: file.name,
+          size: file.size,
+          mime: file.type,
+          totalChunks,
+          startChunk,
+        });
+        let batchCount = 0;
+        for (let sent = startChunk; sent < totalChunks; sent++) {
+          if (transferCancelled) return;
+          while (transferPaused && conn && conn.open && !transferCancelled)
+            await new Promise((r) => setTimeout(r, 100));
+          if (transferCancelled || !conn || !conn.open) return;
+          const start = sent * CHUNK;
+          const chunkBuf = await file
+            .slice(start, Math.min(start + CHUNK, file.size))
+            .arrayBuffer();
+          sendBytesSent += chunkBuf.byteLength;
+          let retries = 0;
+          while (true) {
+            try {
+              if (!conn || !conn.open || transferCancelled) return;
+              if (batchCount === 0) await waitForBuffer();
+              batchCount = (batchCount + 1) % CHUNKS_PER_BATCH;
+              let d;
+              d = new Uint8Array(await encryptChunk(chunkBuf, cryptoKey));
+              conn.send({ type: "b", i: sent, d });
+              currentSendProgress = Math.round(
+                ((sent + 1) / totalChunks) * 100,
+              );
+              updateProg(idx, currentSendProgress, sent + 1 === totalChunks);
+              break;
+            } catch (e) {
+              if (transferCancelled || !conn || !conn.open) return;
+              retries++;
+              if (retries > MAX_RETRIES) return;
+              const badge = document.getElementById("retry" + idx);
+              if (badge) {
+                badge.textContent = "retry " + retries;
+                badge.classList.remove("hidden");
+              }
+              await new Promise((r) =>
+                setTimeout(r, RETRY_DELAY * Math.min(retries, 3)),
+              );
+              batchCount = 0;
+            }
+          }
+          if (sent % 16 === 0) await yieldControl();
+        }
+        currentSendProgress = 0;
+      }
 
-function cancelTransfer(){
-  transferCancelled=true;
-  transferPaused=false;
-  const pauseBtn=document.getElementById('pause-btn');
-  if(pauseBtn)pauseBtn.textContent='Pause';
-}
+      function togglePause() {
+        transferPaused = !transferPaused;
+        const btn = document.getElementById("pause-btn");
+        btn.textContent = transferPaused ? "Resume" : "Pause";
+        document.getElementById("eta-val").textContent = transferPaused
+          ? "paused"
+          : "resuming...";
+      }
 
-function updateProg(idx,pct,done){const f=document.getElementById('fill'+idx);const l=document.getElementById('pct'+idx);if(f){f.style.width=pct+'%';if(done)f.classList.add('done')}if(l)l.textContent=pct+'%'}
+      function cancelTransfer() {
+        transferCancelled = true;
+        transferPaused = false;
+        const pauseBtn = document.getElementById("pause-btn");
+        if (pauseBtn) pauseBtn.textContent = "Pause";
+      }
 
-async function handleIncoming(d){
-  if(d.type==='meta'){
-    recvTotalBytes+=d.size;if(!recvStartTime)recvStartTime=Date.now();
-    if(!recvSpeedInterval)recvSpeedInterval=setInterval(updateRecvSpeed,500);
-    recvMeta[d.name]={...d,received:0,lastPct:0,bytesReceived:0};recvBuffers[d.name]=new Array(d.totalChunks);
-    show('room-recv-progress');
-    const k=safeKey(d.name);
-    const safeRecvName=escapeHtml(d.name);document.getElementById('room-recv-items').innerHTML+=`<div class="xfer-file-item"><span class="prog-name" title="${safeRecvName}">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div>`;
-    const list=document.getElementById('room-recv-list');if(list.querySelector('.empty'))list.innerHTML='';
-  }else if(d.type==='b'&&!pinPending){
-    const raw=d.d;const buf=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
-    recvQueue.push({i:d.i,buf,byteLength:buf.byteLength});
-    if(!recvProcessing)processRecvQueue();
-  }else if(d.type==='del'){
-    deleteReceivedFile(d.name,d.size);
-  }
-}
+      function updateProg(idx, pct, done) {
+        const f = document.getElementById("fill" + idx);
+        const l = document.getElementById("pct" + idx);
+        if (f) {
+          f.style.width = pct + "%";
+          if (done) f.classList.add("done");
+        }
+        if (l) l.textContent = pct + "%";
+      }
 
-function deleteReceivedFile(name,size){
-  const list=document.getElementById('room-recv-list');
-  const items=list.querySelectorAll('.recv-item');
-  items.forEach(item=>{
-    const nameEl=item.querySelector('.ri-name');
-    if(nameEl&&nameEl.textContent===name&&nameEl.dataset.size===String(size)){
-      item.style.animation='slideOut .3s ease';
-      setTimeout(()=>item.remove(),300);
-    }
-  });
-  if(recvMeta[name]){delete recvMeta[name];delete recvBuffers[name];}
-}
+      async function handleIncoming(d) {
+        if (d.type === "meta") {
+          recvTotalBytes += d.size;
+          if (!recvStartTime) recvStartTime = Date.now();
+          if (!recvSpeedInterval)
+            recvSpeedInterval = setInterval(updateRecvSpeed, 500);
+          recvMeta[d.name] = {
+            ...d,
+            received: 0,
+            lastPct: 0,
+            bytesReceived: 0,
+          };
+          recvBuffers[d.name] = new Array(d.totalChunks);
+          show("room-recv-progress");
+          const k = safeKey(d.name);
+          const safeRecvName = escapeHtml(d.name);
+          document.getElementById("room-recv-items").innerHTML +=
+            `<div class="xfer-file-item"><span class="prog-name" title="${safeRecvName}">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div>`;
+          const list = document.getElementById("room-recv-list");
+          if (list.querySelector(".empty")) list.innerHTML = "";
+        } else if (d.type === "b" && !pinPending) {
+          const raw = d.d;
+          const buf =
+            raw instanceof ArrayBuffer
+              ? raw
+              : raw.buffer.slice(
+                  raw.byteOffset,
+                  raw.byteOffset + raw.byteLength,
+                );
+          recvQueue.push({ i: d.i, buf, byteLength: buf.byteLength });
+          if (!recvProcessing) processRecvQueue();
+        } else if (d.type === "del") {
+          deleteReceivedFile(d.name, d.size);
+        }
+      }
 
-function updateRecvSpeed(){
-  const elapsed=(Date.now()-recvStartTime)/1000;if(elapsed<0.5)return;
-  const speed=recvBytesReceived/elapsed;const remaining=(recvTotalBytes-recvBytesReceived)/Math.max(speed,1);
-  const speedEl=document.getElementById('recv-speed-val');const etaEl=document.getElementById('recv-eta-val');
-  if(speedEl)speedEl.textContent=fmtSize(speed)+'/s';
-  if(etaEl)etaEl.textContent=fmtETA(remaining);
-  const pct=recvTotalBytes>0?Math.min(100,Math.round(recvBytesReceived/recvTotalBytes*100)):0;
-  const fill=document.getElementById('recv-overall-fill');
-  if(fill){fill.style.width=pct+'%';fill.classList.toggle('active',pct>0&&pct<100);}
-}
+      function deleteReceivedFile(name, size) {
+        const list = document.getElementById("room-recv-list");
+        const items = list.querySelectorAll(".recv-item");
+        items.forEach((item) => {
+          const nameEl = item.querySelector(".ri-name");
+          if (
+            nameEl &&
+            nameEl.textContent === name &&
+            nameEl.dataset.size === String(size)
+          ) {
+            item.style.animation = "slideOut .3s ease";
+            setTimeout(() => item.remove(), 300);
+          }
+        });
+        if (recvMeta[name]) {
+          delete recvMeta[name];
+          delete recvBuffers[name];
+        }
+      }
 
-async function processRecvQueue(){
-  recvProcessing=true;
-  while(recvQueue.length>0){
-    const batch=recvQueue.splice(0,RECV_BATCH_SIZE);
-    const meta=Object.values(recvMeta).find(m=>m.received<m.totalChunks);
-    if(!meta){recvProcessing=false;return;}
-    let stored=0;
-    await Promise.all(batch.map(async item=>{
-      try{
-        const data=await decryptChunk(item.buf,cryptoKey);
-        if(item.i<0||item.i>=meta.totalChunks)return;
-        recvBuffers[meta.name][item.i]=data;
-        meta.bytesReceived+=item.byteLength||0;
-        recvBytesReceived+=item.byteLength||0;
-        stored++;
-      }catch(e){console.error('Decrypt error',e);}
-    }));
-    meta.received+=stored;
-    const pct=Math.round(meta.received/meta.totalChunks*100);
-    if(pct!==meta.lastPct){
-      meta.lastPct=pct;
-      const k=safeKey(meta.name);
-      const fill=document.getElementById('rfill_'+k);const label=document.getElementById('rpct_'+k);
-      if(fill)fill.style.width=pct+'%';
-      if(label)label.textContent=pct+'%';
-    }
-    if(meta.received>=meta.totalChunks){
-      const k=safeKey(meta.name);
-      const fill=document.getElementById('rfill_'+k);
-      if(fill)fill.classList.add('done');
-      assembleFile(meta.name);
-    }
-    if(batch.length>=RECV_BATCH_SIZE)await yieldControl();
-  }
-  recvProcessing=false;
-}
+      function updateRecvSpeed() {
+        const elapsed = (Date.now() - recvStartTime) / 1000;
+        if (elapsed < 0.5) return;
+        const speed = recvBytesReceived / elapsed;
+        const remaining =
+          (recvTotalBytes - recvBytesReceived) / Math.max(speed, 1);
+        const speedEl = document.getElementById("recv-speed-val");
+        const etaEl = document.getElementById("recv-eta-val");
+        if (speedEl) speedEl.textContent = fmtSize(speed) + "/s";
+        if (etaEl) etaEl.textContent = fmtETA(remaining);
+        const pct =
+          recvTotalBytes > 0
+            ? Math.min(
+                100,
+                Math.round((recvBytesReceived / recvTotalBytes) * 100),
+              )
+            : 0;
+        const fill = document.getElementById("recv-overall-fill");
+        if (fill) {
+          fill.style.width = pct + "%";
+          fill.classList.toggle("active", pct > 0 && pct < 100);
+        }
+      }
 
-function assembleFile(name){
-  const meta=recvMeta[name];const mime=sanitizeMime(meta.mime);
-  const blob=new Blob(recvBuffers[name],{type:mime});const url=URL.createObjectURL(blob);receivedBlobURLs.push(url);
-  const div=document.createElement('div');div.className='recv-item recv-item-col recv-item-enter';
-  const safeRecvName2=escapeHtml(name);
-  let preview='';
-  if(mime.startsWith('image/'))preview=`<img src="${url}" class="recv-preview" alt="${safeRecvName2}">`;
-  else if(mime.startsWith('video/'))preview=`<video src="${url}" class="recv-preview" controls playsinline></video>`;
-  else if(mime.startsWith('audio/'))preview=`<audio src="${url}" class="recv-audio" controls></audio>`;
-  div.innerHTML=`${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${safeRecvName2}" data-size="${meta.size}">${safeRecvName2}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${safeRecvName2}">Save</a></div>`;
-  document.getElementById('room-recv-list').appendChild(div);
-  setTimeout(()=>div.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
-  setTimeout(()=>{URL.revokeObjectURL(url);const i=receivedBlobURLs.indexOf(url);if(i>-1)receivedBlobURLs.splice(i,1);},60000);
-  delete recvBuffers[name];delete recvMeta[name];
-  const remaining=Object.values(recvMeta).filter(m=>m.received<m.totalChunks).length;
-  if(remaining===0){
-    if(recvSpeedInterval){clearInterval(recvSpeedInterval);recvSpeedInterval=null;}
-    document.getElementById('recv-speed-val').textContent='0 B/s';
-    document.getElementById('recv-eta-val').textContent='done';
-    const rfd=document.getElementById('recv-overall-fill');if(rfd){rfd.style.width='100%';rfd.classList.remove('active');setTimeout(()=>{rfd.style.width='0%';},1500);}
-  }
-}
+      async function processRecvQueue() {
+        recvProcessing = true;
+        while (recvQueue.length > 0) {
+          const batch = recvQueue.splice(0, RECV_BATCH_SIZE);
+          const meta = Object.values(recvMeta).find(
+            (m) => m.received < m.totalChunks,
+          );
+          if (!meta) {
+            recvProcessing = false;
+            return;
+          }
+          let stored = 0;
+          await Promise.all(
+            batch.map(async (item) => {
+              try {
+                const data = await decryptChunk(item.buf, cryptoKey);
+                if (item.i < 0 || item.i >= meta.totalChunks) return;
+                recvBuffers[meta.name][item.i] = data;
+                meta.bytesReceived += item.byteLength || 0;
+                recvBytesReceived += item.byteLength || 0;
+                stored++;
+              } catch (e) {
+                console.error("Decrypt error", e);
+              }
+            }),
+          );
+          meta.received += stored;
+          const pct = Math.round((meta.received / meta.totalChunks) * 100);
+          if (pct !== meta.lastPct) {
+            meta.lastPct = pct;
+            const k = safeKey(meta.name);
+            const fill = document.getElementById("rfill_" + k);
+            const label = document.getElementById("rpct_" + k);
+            if (fill) fill.style.width = pct + "%";
+            if (label) label.textContent = pct + "%";
+          }
+          if (meta.received >= meta.totalChunks) {
+            const k = safeKey(meta.name);
+            const fill = document.getElementById("rfill_" + k);
+            if (fill) fill.classList.add("done");
+            assembleFile(meta.name);
+          }
+          if (batch.length >= RECV_BATCH_SIZE) await yieldControl();
+        }
+        recvProcessing = false;
+      }
 
-function openCamera(){document.getElementById('camera-input').click()}
+      function assembleFile(name) {
+        const meta = recvMeta[name];
+        const mime = sanitizeMime(meta.mime);
+        const blob = new Blob(recvBuffers[name], { type: mime });
+        const url = URL.createObjectURL(blob);
+        receivedBlobURLs.push(url);
+        const div = document.createElement("div");
+        div.className = "recv-item recv-item-col recv-item-enter";
+        const safeRecvName2 = escapeHtml(name);
+        let preview = "";
+        if (mime.startsWith("image/"))
+          preview = `<img src="${url}" class="recv-preview" alt="${safeRecvName2}">`;
+        else if (mime.startsWith("video/"))
+          preview = `<video src="${url}" class="recv-preview" controls playsinline></video>`;
+        else if (mime.startsWith("audio/"))
+          preview = `<audio src="${url}" class="recv-audio" controls></audio>`;
+        div.innerHTML = `${preview}<div class="recv-info"><span>${fileIcon(name)}</span><span class="ri-name" title="${safeRecvName2}" data-size="${meta.size}">${safeRecvName2}</span><span class="ri-size">${fmtSize(meta.size)}</span><a class="dl-btn" href="${url}" download="${safeRecvName2}">Save</a></div>`;
+        document.getElementById("room-recv-list").appendChild(div);
+        setTimeout(
+          () => div.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+          50,
+        );
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          const i = receivedBlobURLs.indexOf(url);
+          if (i > -1) receivedBlobURLs.splice(i, 1);
+        }, 60000);
+        delete recvBuffers[name];
+        delete recvMeta[name];
+        const remaining = Object.values(recvMeta).filter(
+          (m) => m.received < m.totalChunks,
+        ).length;
+        if (remaining === 0) {
+          if (recvSpeedInterval) {
+            clearInterval(recvSpeedInterval);
+            recvSpeedInterval = null;
+          }
+          document.getElementById("recv-speed-val").textContent = "0 B/s";
+          document.getElementById("recv-eta-val").textContent = "done";
+          const rfd = document.getElementById("recv-overall-fill");
+          if (rfd) {
+            rfd.style.width = "100%";
+            rfd.classList.remove("active");
+            setTimeout(() => {
+              rfd.style.width = "0%";
+            }, 1500);
+          }
+        }
+      }
 
-let _qrLibPromise=null;
-async function loadQRLib(){if(window.Html5Qrcode)return;if(!_qrLibPromise)_qrLibPromise=new Promise((res,rej)=>{const s=document.createElement('script');s.src='lib/html5-qrcode.min.js';s.onload=res;s.onerror=e=>{_qrLibPromise=null;rej(e);};document.head.appendChild(s);});return _qrLibPromise;}
-async function openQRScanner(){
-  await loadQRLib();
-  const modal=document.getElementById('qr-scanner-modal');
-  const hint=document.getElementById('scan-hint');
-  const retryBtn=document.getElementById('qr-retry-btn');
-  modal.classList.remove('hidden');
-  modal.classList.add('active');
-  if(hint)hint.textContent='Starting camera...';
-  if(retryBtn)retryBtn.classList.add('hidden');
-  await new Promise(r=>setTimeout(r,100));
-  await startQRScanner(hint,retryBtn);
-}
+      function openCamera() {
+        document.getElementById("camera-input").click();
+      }
 
-async function startQRScanner(hint,retryBtn){
-  const config={fps:10,qrbox:200};
-  const onQRSuccess=text=>{const code=extractRoomCode(text);if(code){closeQRScanner();document.getElementById('join-code-input').value=code;joinRoom(code);}};
-  const onQRError=()=>{};
-  try{
-    if(qrScanner){
-      try{await qrScanner.stop();}catch(e){}
-      try{qrScanner.clear();}catch(e){}
-      qrScanner=null;
-    }
-    document.getElementById('qr-reader').innerHTML='';
-    await new Promise(r=>setTimeout(r,50));
-    qrScanner=new Html5Qrcode('qr-reader');
-    await qrScanner.start({facingMode:'environment'},config,onQRSuccess,onQRError);
-    if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
-    if(retryBtn)retryBtn.classList.add('hidden');
-  }catch(err1){
-    console.log('Rear camera failed:',err1.name,err1.message);
-    try{
-      await qrScanner.start({facingMode:'user'},config,onQRSuccess,onQRError);
-      if(hint)hint.textContent='Point your camera at a FileDrop room QR code';
-      if(retryBtn)retryBtn.classList.add('hidden');
-    }catch(err2){
-      console.log('Front camera failed:',err2.name,err2.message);
-      let msg='Camera error. ';
-      if(err2.name==='NotAllowedError')msg='Permission denied. ';
-      else if(err2.name==='NotFoundError')msg='No camera found. ';
-      else if(err2.name==='NotReadableError')msg='Camera in use. ';
-      if(hint)hint.textContent=msg+'Tap Retry to try again.';
-      if(retryBtn)retryBtn.classList.remove('hidden');
-    }
-  }
-}
+      let _qrLibPromise = null;
+      async function loadQRLib() {
+        if (window.Html5Qrcode) return;
+        if (!_qrLibPromise)
+          _qrLibPromise = new Promise((res, rej) => {
+            const s = document.createElement("script");
+            s.src = "lib/html5-qrcode.min.js";
+            s.onload = res;
+            s.onerror = (e) => {
+              _qrLibPromise = null;
+              rej(e);
+            };
+            document.head.appendChild(s);
+          });
+        return _qrLibPromise;
+      }
+      async function openQRScanner() {
+        await loadQRLib();
+        const modal = document.getElementById("qr-scanner-modal");
+        const hint = document.getElementById("scan-hint");
+        const retryBtn = document.getElementById("qr-retry-btn");
+        modal.classList.remove("hidden");
+        modal.classList.add("active");
+        if (hint) hint.textContent = "Starting camera...";
+        if (retryBtn) retryBtn.classList.add("hidden");
+        await new Promise((r) => setTimeout(r, 100));
+        await startQRScanner(hint, retryBtn);
+      }
 
-function retryQRScanner(){
-  const hint=document.getElementById('scan-hint');
-  const retryBtn=document.getElementById('qr-retry-btn');
-  if(hint)hint.textContent='Requesting camera access...';
-  if(retryBtn)retryBtn.classList.add('hidden');
-  startQRScanner(hint,retryBtn);
-}
+      async function startQRScanner(hint, retryBtn) {
+        const config = { fps: 10, qrbox: 200 };
+        const onQRSuccess = (text) => {
+          const code = extractRoomCode(text);
+          if (code) {
+            closeQRScanner();
+            document.getElementById("join-code-input").value = code;
+            joinRoom(code);
+          }
+        };
+        const onQRError = () => {};
+        try {
+          if (qrScanner) {
+            try {
+              await qrScanner.stop();
+            } catch (e) {}
+            try {
+              qrScanner.clear();
+            } catch (e) {}
+            qrScanner = null;
+          }
+          document.getElementById("qr-reader").innerHTML = "";
+          await new Promise((r) => setTimeout(r, 50));
+          qrScanner = new Html5Qrcode("qr-reader");
+          await qrScanner.start(
+            { facingMode: "environment" },
+            config,
+            onQRSuccess,
+            onQRError,
+          );
+          if (hint)
+            hint.textContent = "Point your camera at a FileDrop room QR code";
+          if (retryBtn) retryBtn.classList.add("hidden");
+        } catch (err1) {
+          console.log("Rear camera failed:", err1.name, err1.message);
+          try {
+            await qrScanner.start(
+              { facingMode: "user" },
+              config,
+              onQRSuccess,
+              onQRError,
+            );
+            if (hint)
+              hint.textContent = "Point your camera at a FileDrop room QR code";
+            if (retryBtn) retryBtn.classList.add("hidden");
+          } catch (err2) {
+            console.log("Front camera failed:", err2.name, err2.message);
+            let msg = "Camera error. ";
+            if (err2.name === "NotAllowedError") msg = "Permission denied. ";
+            else if (err2.name === "NotFoundError") msg = "No camera found. ";
+            else if (err2.name === "NotReadableError") msg = "Camera in use. ";
+            if (hint) hint.textContent = msg + "Tap Retry to try again.";
+            if (retryBtn) retryBtn.classList.remove("hidden");
+          }
+        }
+      }
 
-async function closeQRScanner(){
-  const modal=document.getElementById('qr-scanner-modal');
-  modal.classList.remove('active');
-  setTimeout(()=>modal.classList.add('hidden'),300);
-  if(qrScanner){
-    try{await qrScanner.stop();}catch(e){}
-    try{qrScanner.clear();}catch(e){}
-    qrScanner=null;
-  }
-}
+      function retryQRScanner() {
+        const hint = document.getElementById("scan-hint");
+        const retryBtn = document.getElementById("qr-retry-btn");
+        if (hint) hint.textContent = "Requesting camera access...";
+        if (retryBtn) retryBtn.classList.add("hidden");
+        startQRScanner(hint, retryBtn);
+      }
 
-async function scanQRFromFile(e){
-  const file=e.target.files[0];if(!file)return;e.target.value='';
-  await loadQRLib();
-  const hint=document.getElementById('scan-hint');
-  if(hint)hint.textContent='Scanning image\u2026';
-  if(qrScanner){try{await qrScanner.stop();}catch(_){}try{qrScanner.clear();}catch(_){}qrScanner=null;}
-  try{
-    const reader=new Html5Qrcode('qr-reader');
-    const text=await reader.scanFile(file,false);
-    const code=extractRoomCode(text);
-    if(code){closeQRScanner();document.getElementById('join-code-input').value=code;joinRoom(code);}
-    else{if(hint)hint.textContent='No QR code found \u2014 try again.';}
-  }catch(err){
-    if(hint)hint.textContent='Could not read QR code \u2014 try again.';
-  }
-}
+      async function closeQRScanner() {
+        const modal = document.getElementById("qr-scanner-modal");
+        modal.classList.remove("active");
+        setTimeout(() => modal.classList.add("hidden"), 300);
+        if (qrScanner) {
+          try {
+            await qrScanner.stop();
+          } catch (e) {}
+          try {
+            qrScanner.clear();
+          } catch (e) {}
+          qrScanner = null;
+        }
+      }
 
-function extractRoomCode(text){
-  const match=text.match(/room=([A-Z0-9]{6})/i);
-  if(match)return match[1].toUpperCase();
-  const clean=text.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(clean.length===6)return clean;
-  return null;
-}
-function onCameraCapture(e){if(e.target.files&&e.target.files[0]){const f=e.target.files[0];const ext=f.type.startsWith('video')?'.mp4':'.jpg';const named=new File([f],'camera_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+ext,{type:f.type});addFiles([named]);}e.target.value=''}
+      async function scanQRFromFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = "";
+        await loadQRLib();
+        const hint = document.getElementById("scan-hint");
+        if (hint) hint.textContent = "Scanning image\u2026";
+        if (qrScanner) {
+          try {
+            await qrScanner.stop();
+          } catch (_) {}
+          try {
+            qrScanner.clear();
+          } catch (_) {}
+          qrScanner = null;
+        }
+        try {
+          const reader = new Html5Qrcode("qr-reader");
+          const text = await reader.scanFile(file, false);
+          const code = extractRoomCode(text);
+          if (code) {
+            closeQRScanner();
+            document.getElementById("join-code-input").value = code;
+            joinRoom(code);
+          } else {
+            if (hint) hint.textContent = "No QR code found \u2014 try again.";
+          }
+        } catch (err) {
+          if (hint)
+            hint.textContent = "Could not read QR code \u2014 try again.";
+        }
+      }
 
-window.addEventListener('dragenter',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.add('active')});
-window.addEventListener('dragover',e=>e.preventDefault());
-window.addEventListener('dragleave',e=>{if(e.relatedTarget===null)document.getElementById('drag-overlay').classList.remove('active')});
-window.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drag-overlay').classList.remove('active');if(e.dataTransfer.files.length)addFiles([...e.dataTransfer.files])});
-window.addEventListener('paste',e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){addFiles(files);e.preventDefault();}});
+      function extractRoomCode(text) {
+        const match = text.match(/room=([A-Z0-9]{6})/i);
+        if (match) return match[1].toUpperCase();
+        const clean = text
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "");
+        if (clean.length === 6) return clean;
+        return null;
+      }
+      function onCameraCapture(e) {
+        if (e.target.files && e.target.files[0]) {
+          const f = e.target.files[0];
+          const ext = f.type.startsWith("video") ? ".mp4" : ".jpg";
+          const named = new File(
+            [f],
+            "camera_" +
+              new Date().toISOString().slice(0, 19).replace(/:/g, "-") +
+              ext,
+            { type: f.type },
+          );
+          addFiles([named]);
+        }
+        e.target.value = "";
+      }
 
-window.addEventListener('load',()=>{
-  if(window.matchMedia('(hover:none),(pointer:coarse)').matches){
-    const dz=document.querySelector('.dz-text');
-    if(dz)dz.innerHTML='Tap to pick files';
-  }
-  const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
-  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
-});
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+      window.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        document.getElementById("drag-overlay").classList.add("active");
+      });
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("dragleave", (e) => {
+        if (e.relatedTarget === null)
+          document.getElementById("drag-overlay").classList.remove("active");
+      });
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        document.getElementById("drag-overlay").classList.remove("active");
+        if (e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]);
+      });
+      window.addEventListener("paste", (e) => {
+        const files = [...(e.clipboardData?.items || [])]
+          .filter((i) => i.kind === "file")
+          .map((i) => i.getAsFile())
+          .filter(Boolean);
+        if (files.length) {
+          addFiles(files);
+          e.preventDefault();
+        }
+      });
 
-window.addEventListener('beforeunload',()=>{
-  receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
-  sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});
-  if(peer){try{peer.destroy();}catch(e){}}
-});
+      window.addEventListener("load", () => {
+        if (window.matchMedia("(hover:none),(pointer:coarse)").matches) {
+          const dz = document.querySelector(".dz-text");
+          if (dz) dz.innerHTML = "Tap to pick files";
+        }
+        const room =
+          new URLSearchParams(window.location.hash.slice(1)).get("room") ||
+          new URLSearchParams(window.location.search).get("room");
+        if (room && /^[A-Z0-9]{6}$/i.test(room)) {
+          showJoin();
+          document.getElementById("join-code-input").value = room
+            .toUpperCase()
+            .slice(0, 6);
+          setTimeout(() => joinRoom(room.toUpperCase().slice(0, 6)), 300);
+        }
+      });
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      }
 
-document.querySelectorAll('.mode-btn').forEach(btn=>{
-  btn.addEventListener('mousemove',e=>{const r=btn.getBoundingClientRect();btn.style.setProperty('--mouse-x',e.clientX-r.left+'px');btn.style.setProperty('--mouse-y',e.clientY-r.top+'px')});
-});
-</script>
-</body>
+      window.addEventListener("beforeunload", () => {
+        receivedBlobURLs.forEach((u) => {
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {}
+        });
+        sendThumbURLs.forEach((u) => {
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {}
+        });
+        if (peer) {
+          try {
+            peer.destroy();
+          } catch (e) {}
+        }
+      });
+
+      document.querySelectorAll(".mode-btn").forEach((btn) => {
+        btn.addEventListener("mousemove", (e) => {
+          const r = btn.getBoundingClientRect();
+          btn.style.setProperty("--mouse-x", e.clientX - r.left + "px");
+          btn.style.setProperty("--mouse-y", e.clientY - r.top + "px");
+        });
+      });
+    </script>
+  </body>
 </html>
