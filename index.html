@@ -452,7 +452,7 @@ const MAX_RETRIES=5,RETRY_DELAY=100,MAX_RECONNECT=5;
 let qrScanner=null;
 let transferPaused=false,transferCancelled=false,currentSendIdx=0,currentSendProgress=0;
 let recvQueue=[],recvProcessing=false;
-let wakeLock=null,hostPubKeyArr=null;
+let wakeLock=null,hostPubKeyArr=null,hostReconnecting=false;
 
 async function requestWakeLock(){if(!('wakeLock' in navigator))return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(e){}}
 function releaseWakeLock(){if(wakeLock){try{wakeLock.release();}catch(e){}wakeLock=null;}}
@@ -532,7 +532,7 @@ function onPinInput(el,isGuest=false){el.value=el.value.replace(/[^0-9]/g,'').sl
 
 function goHome(){
   if(peer){try{peer.destroy()}catch(e){}peer=null}
-  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;hostPubKeyArr=null;releaseWakeLock();
+  conn=null;isHost=false;cryptoKey=null;roomPin=null;pinPending=false;localECDHKeyPair=null;pinFailCount=0;hostPubKeyArr=null;hostReconnecting=false;releaseWakeLock();
   const fpEl=document.getElementById('room-fingerprint');if(fpEl){fpEl.classList.add('hidden');fpEl.innerHTML='';}
   receivedBlobURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});receivedBlobURLs=[];
   sendThumbURLs.forEach(u=>{try{URL.revokeObjectURL(u);}catch(e){}});sendThumbURLs.clear();
@@ -576,7 +576,7 @@ function enterRoom(code){
 }
 
 function onConnected(){
-  reconnectAttempts=0;
+  reconnectAttempts=0;hostReconnecting=false;
   setDot('connected');setStatus('Connected \u2014 E2EE secured');
   document.getElementById('view-room').classList.add('connected-border');
   hide('room-pin-setup');hide('room-pin-entry');
@@ -599,16 +599,20 @@ function createRoom(reuseCode){
   peer=new Peer(code,PEERJS_CFG);
   peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();const ka=setInterval(()=>{if(peer&&peer.open)peer.socket?.send?.(JSON.stringify({type:'ping'}));},10000);peer._keepAlive=ka;});
   peer.on('disconnected',()=>{if(peer&&!peer.destroyed){peer.reconnect();}});
-  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode){setStatus('Reconnecting server\u2026');setTimeout(()=>createRoom(currentRoomCode),1500);}});
+  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode&&!hostReconnecting){hostReconnecting=true;setStatus('Reconnecting server\u2026');setTimeout(()=>{hostReconnecting=false;createRoom(currentRoomCode);},3000);}});
   peer.on('error',e=>{
+    if(hostReconnecting)return;
+    hostReconnecting=true;
+    if(peer){try{peer.destroy();}catch(_){}peer=null;}
     if(e.type==='unavailable-id'){
       setStatus('Room expired — creating new one\u2026');
-      setTimeout(()=>{currentRoomCode='';createRoom();},1000);
+      setTimeout(()=>{currentRoomCode='';hostReconnecting=false;createRoom();},2000);
     }else if(e.type==='network'||e.type==='server-error'){
       setStatus('Server issue — retrying\u2026');
-      setTimeout(()=>createRoom(currentRoomCode),2000);
+      setTimeout(()=>{hostReconnecting=false;createRoom(currentRoomCode);},3000);
     }else{
       setDot('error');setStatus(friendlyError(e.type));
+      setTimeout(()=>{hostReconnecting=false;},5000);
     }
   });
   peer.on('connection',async c=>{
@@ -715,9 +719,10 @@ function joinRoom(autoCode){
       peerUnavailableRetries++;
       const delay=Math.min(1000*peerUnavailableRetries,4000);
       setStatus(`Host not ready\u2014retrying ${peerUnavailableRetries}/5\u2026`);
-      setTimeout(()=>doConnect(code),delay);
-    }else{
+      setTimeout(()=>{if(peer&&peer.open&&!conn)doConnect(code);},delay);
+    }else if(e.type!=='peer-unavailable'){
       setDot('error');setStatus(friendlyError(e.type));
+      if(!conn)scheduleReconnect();
     }
   });
   setTimeout(()=>{if(!peerReady&&!conn){setStatus('Connection stalled\u2014retrying\u2026');recreatePeerIfNeeded().then(()=>{if(peer&&peer.open)doConnect(code);});}},6000);
@@ -747,13 +752,14 @@ function doConnect(code){
 
 function scheduleReconnect(){
   if(!currentRoomCode||reconnectAttempts>=MAX_RECONNECT){setDot('error');setStatus('Connection lost');return;}
+  if(isHost&&hostReconnecting)return;
   reconnectAttempts++;
   const delay=Math.min(1500*reconnectAttempts,8000);
   setDot('waiting');clearTimeout(reconnectTimer);
   let secs=Math.ceil(delay/1000);
   setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);
   const tick=setInterval(()=>{secs--;if(secs>0)setStatus(`Reconnecting in ${secs}s\u2026 (${reconnectAttempts}/${MAX_RECONNECT})`);else clearInterval(tick);},1000);
-  reconnectTimer=setTimeout(()=>{clearInterval(tick);if(isHost){if(!peer||peer.destroyed)createRoom(currentRoomCode);}else{recreatePeerIfNeeded().then(()=>doConnect(currentRoomCode));}},delay);
+  reconnectTimer=setTimeout(()=>{clearInterval(tick);if(isHost){if((!peer||peer.destroyed)&&!hostReconnecting){hostReconnecting=true;createRoom(currentRoomCode);}}else{recreatePeerIfNeeded().then(()=>doConnect(currentRoomCode));}},delay);
 }
 async function recreatePeerIfNeeded(){if(!peer||peer.destroyed||!peer.open){if(peer)try{peer.destroy();}catch(e){}await new Promise(r=>setTimeout(r,300));peer=new Peer(PEERJS_CFG);await new Promise((res,rej)=>{peer.on('open',res);peer.on('error',rej);setTimeout(()=>rej(new Error('peer open timeout')),5000);}).catch(()=>{});}}
 
@@ -1110,7 +1116,8 @@ window.addEventListener('load',()=>{
     if(dz)dz.innerHTML='Tap to pick files';
   }
   const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
-  if(room&&/^[A-Z0-9]{6}$/i.test(room)){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
+  const onHome=document.getElementById('view-home')&&!document.getElementById('view-home').classList.contains('hidden');
+  if(room&&/^[A-Z0-9]{6}$/i.test(room)&&!conn&&onHome){showJoin();document.getElementById('join-code-input').value=room.toUpperCase().slice(0,6);setTimeout(()=>joinRoom(room.toUpperCase().slice(0,6)),300);}
 });
 window.addEventListener('hashchange',()=>{
   const room=new URLSearchParams(window.location.hash.slice(1)).get('room')||new URLSearchParams(window.location.search).get('room');
