@@ -597,10 +597,20 @@ function createRoom(reuseCode){
   show('room-pin-setup');
   setStatus('Initializing\u2026');
   peer=new Peer(code,PEERJS_CFG);
-  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();const ka=setInterval(()=>{if(peer&&peer.open)peer.socket?.send?.(JSON.stringify({type:'ping'}));},20000);peer._keepAlive=ka;});
+  peer.on('open',()=>{setDot('waiting');setStatus('Waiting for peer\u2026');requestWakeLock();const ka=setInterval(()=>{if(peer&&peer.open)peer.socket?.send?.(JSON.stringify({type:'ping'}));},10000);peer._keepAlive=ka;});
   peer.on('disconnected',()=>{if(peer&&!peer.destroyed){peer.reconnect();}});
-  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode){setStatus('Reconnecting server\u2026');setTimeout(()=>createRoom(currentRoomCode),800);}});
-  peer.on('error',e=>{setDot('error');setStatus(friendlyError(e.type))});
+  peer.on('close',()=>{if(peer&&peer._keepAlive)clearInterval(peer._keepAlive);if(isHost&&currentRoomCode){setStatus('Reconnecting server\u2026');setTimeout(()=>createRoom(currentRoomCode),1500);}});
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'){
+      setStatus('Room expired — creating new one\u2026');
+      setTimeout(()=>{currentRoomCode='';createRoom();},1000);
+    }else if(e.type==='network'||e.type==='server-error'){
+      setStatus('Server issue — retrying\u2026');
+      setTimeout(()=>createRoom(currentRoomCode),2000);
+    }else{
+      setDot('error');setStatus(friendlyError(e.type));
+    }
+  });
   peer.on('connection',async c=>{
     if(conn&&conn.open){
       try{c.send({type:'room-full'});c.close();}catch(e){}
@@ -701,10 +711,11 @@ function joinRoom(autoCode){
   peer.on('disconnected',()=>{if(peer&&!peer.destroyed)peer.reconnect();});
   peer.on('close',()=>{setStatus('Connection lost');});
   peer.on('error',e=>{
-    if(e.type==='peer-unavailable'&&peerUnavailableRetries<3){
+    if(e.type==='peer-unavailable'&&peerUnavailableRetries<5){
       peerUnavailableRetries++;
-      setStatus(`Host not ready\u2014retrying ${peerUnavailableRetries}/3\u2026`);
-      setTimeout(()=>doConnect(code),1500);
+      const delay=Math.min(1000*peerUnavailableRetries,4000);
+      setStatus(`Host not ready\u2014retrying ${peerUnavailableRetries}/5\u2026`);
+      setTimeout(()=>doConnect(code),delay);
     }else{
       setDot('error');setStatus(friendlyError(e.type));
     }
