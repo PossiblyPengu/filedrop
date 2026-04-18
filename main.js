@@ -1,0 +1,3 @@
+// Main JS moved from index.html
+// ...existing code from previous inline script should be pasted here...
+// This is a placeholder. The actual migration would involve moving all logic from the inline <script> to this file.

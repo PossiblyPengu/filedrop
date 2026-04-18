@@ -54,9 +54,30 @@ FileDrop uses **public infrastructure by default**:
 - File content is encrypted with AES-256-GCM when password protection is enabled
 - No tracking, analytics, or persistent storage
 
+### Private PeerJS server
 To use a **private PeerJS server**, edit the `PEERJS_CFG` constant in `index.html`.
 
-To hide IP addresses completely, add a **TURN server** to the ICE configuration.
+### TURN server configuration
+To support strict NATs or corporate networks, add a **TURN server** to the ICE configuration in `PEERJS_CFG`:
+
+```
+const PEERJS_CFG = {
+	host: "0.peerjs.com", // or your private PeerJS server
+	port: 443,
+	path: "/",
+	secure: true,
+	config: {
+		iceServers: [
+			{ urls: "stun:stun.cloudflare.com:3478" },
+			{ urls: "stun:stun.l.google.com:19302" },
+			// Add your TURN server below
+			{ urls: "turn:your.turn.server:3478", username: "user", credential: "pass" }
+		],
+	},
+};
+```
+
+This enables relay through TURN for symmetric NATs and strict firewalls. See [PeerJS docs](https://peerjs.com/docs.html#api) for more.
 
 ## How It Works
 
@@ -74,6 +95,11 @@ To hide IP addresses completely, add a **TURN server** to the ICE configuration.
 | STUN/TURN        | IP address exposure          | Use authenticated TURN          |
 | Encryption       | Optional (user can disable)  | Enable by default, PIN protects |
 | File Metadata    | Names/sizes sent in clear    | Could encrypt metadata too      |
+
+
+## File Size Limit
+
+The maximum supported file size is **2GB** per file (browser memory constraint). Larger files will be blocked with a warning.
 
 ## Browser Support
 
