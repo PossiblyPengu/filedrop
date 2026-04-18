@@ -760,6 +760,14 @@
         justify-content: center;
         border-radius: 6px;
       }
+      .fi-thumb {
+        width: 38px;
+        height: 38px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        border: 1px solid var(--border);
+      }
       .fi-remove:hover {
         background: var(--red-dim);
         color: var(--red);
@@ -2280,9 +2288,7 @@
         document.getElementById("room-dot").className = "dot " + s;
       }
       function setStatus(t) {
-        const el = document.getElementById("room-status-text");
-        el.textContent = t;
-        el.setAttribute('aria-live', 'polite');
+        document.getElementById("room-status-text").textContent = t;
       }
 
       async function computeFingerprint(hostPub, guestPub) {
@@ -2412,48 +2418,13 @@
           correctLevel: QRCode.CorrectLevel.M,
         });
         modal.classList.remove("hidden");
-        setTimeout(() => {
-          modal.classList.add("active");
-          trapModalFocus(modal, closeEnlargedQR);
-        }, 10);
+        setTimeout(() => modal.classList.add("active"), 10);
       }
 
       function closeEnlargedQR() {
         const modal = document.getElementById("qr-enlarge-modal");
-        if (modal._removeTrap) modal._removeTrap();
         modal.classList.remove("active");
         setTimeout(() => modal.classList.add("hidden"), 300);
-      }
-
-      function trapModalFocus(modal, onEscape) {
-        const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        function handleTab(e) {
-          if (e.key !== 'Tab') return;
-          if (e.shiftKey) {
-            if (document.activeElement === first) {
-              e.preventDefault();
-              last.focus();
-            }
-          } else {
-            if (document.activeElement === last) {
-              e.preventDefault();
-              first.focus();
-            }
-          }
-        }
-        function handleEscape(e) {
-          if (e.key === 'Escape' && typeof onEscape === 'function') onEscape();
-        }
-        modal.addEventListener('keydown', handleTab);
-        modal.addEventListener('keydown', handleEscape);
-        setTimeout(() => first.focus(), 50);
-        modal._removeTrap = () => {
-          modal.removeEventListener('keydown', handleTab);
-          modal.removeEventListener('keydown', handleEscape);
-        };
       }
 
       function showToast(msg) {
@@ -2776,14 +2747,7 @@
         });
         peer.on("error", (e) => {
           setDot("error");
-          let msg = "Error: " + e.type;
-          // Map common PeerJS errors to user-friendly messages
-          if (e.type === "unavailable-id") msg = "Room code is already in use. Try another.";
-          else if (e.type === "network") msg = "Network error. Check your connection.";
-          else if (e.type === "disconnected") msg = "Disconnected from signaling server.";
-          else if (e.type === "peer-unavailable") msg = "Room not found. Check the code.";
-          else if (e.type === "browser-incompatible") msg = "Your browser does not support required features.";
-          setStatus(msg);
+          setStatus("Error: " + e.type);
         });
       }
 
@@ -2992,13 +2956,8 @@
           Math.min(pendingSendIdx - removedBeforePending, selectedFiles.length),
         );
       }
-      const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
       function addFiles(files) {
         files.forEach((f) => {
-          if (f.size > MAX_FILE_SIZE) {
-            showToast(`File too large: ${escapeHtml(f.name)} (${fmtSize(f.size)}). Max supported: 2GB`);
-            return;
-          }
           if (
             !selectedFiles.some((x) => x.name === f.name && x.size === f.size)
           )
@@ -3057,12 +3016,8 @@
           .join("");
         sentWrap.innerHTML = sentFiles
           .map((f, i) => {
-            const isImg = f.type && f.type.startsWith("image/");
             const safeName = escapeHtml(f.name);
-            const icon = isImg
-              ? `<img src="${getThumbURL(f)}" class="fi-thumb" alt="">`
-              : `<span>${fileIcon(f.name)}</span>`;
-            return `<div class="sent-item">${icon}<span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`;
+            return `<div class="sent-item"><span>${fileIcon(f.name)}</span><span class="fi-name" title="${safeName}">${safeName}</span><span class="fi-size">${fmtSize(f.size)}</span><button class="fi-remove" onclick="deleteSentFile(${i})" title="Delete from all" aria-label="Delete">\u2715</button></div>`;
           })
           .join("");
       }
@@ -3111,14 +3066,23 @@
         show("room-send-progress");
         sendStartTime = Date.now();
         sendTotalBytes = selectedFiles.reduce((a, f) => a + f.size, 0);
-        sendBytes_sent = 0;
+        sendBytesSent = 0;
         const interval = setInterval(updateSpeed, 500);
+        const wrap = document.getElementById("room-progress-items");
+        wrap.innerHTML = "";
+        selectedFiles.forEach((f) => {
+          const safeName = escapeHtml(f.name);
+          const pid = sendProgPctId(f);
+          const rid = sendProgRetryId(f);
+          wrap.innerHTML += `<div class="xfer-file-item"><span class="prog-name" title="${safeName}">${safeName}</span><span class="prog-pct" id="${pid}">0%</span><span id="${rid}" class="retry-badge hidden"></span></div>`;
+        });
+        pendingSendIdx = 0;
         let i = 0;
         while (i < selectedFiles.length) {
           if (transferCancelled) break;
-          pendingSend_idx = i;
-          currentSend_idx = i;
-          currentSend_progress = 0;
+          pendingSendIdx = i;
+          currentSendIdx = i;
+          currentSendProgress = 0;
           const ok = await sendOneFile(selectedFiles[i]);
           if (transferCancelled) break;
           if (ok) {
@@ -3135,27 +3099,40 @@
               sendThumbURLs.delete(k);
             }
             selectedFiles.splice(i, 1);
-            pendingSend_idx = Math.min(i, selectedFiles.length);
+            pendingSendIdx = Math.min(i, selectedFiles.length);
             renderSendList();
             continue;
           }
           i++;
         }
+        if (!transferCancelled) pendingSendIdx = selectedFiles.length;
         clearInterval(interval);
-        if (!transferCancelled) pendingSend_idx = selectedFiles.length;
-        document.getElementById("speed-val").textContent = "0 B/s";
-        document.getElementById("eta-val").textContent = "done";
-        btn.textContent = "\u2713 All Sent";
-        btn.style.opacity = ".6";
-        btn.classList.add("success-pulse");
-        buzz([100, 50, 100]);
-        const sfd = document.getElementById("send-overall-fill");
-        if (sfd) {
-          sfd.style.width = "100%";
-          sfd.classList.remove("active");
-          setTimeout(() => {
-            sfd.style.width = "0%";
-          }, 1500);
+        if (controls) controls.classList.add("hidden");
+        if (transferCancelled) {
+          btn.textContent = "Cancelled";
+          btn.style.opacity = ".6";
+          document.getElementById("speed-val").textContent = "0 B/s";
+          document.getElementById("eta-val").textContent = "cancelled";
+          const sfc = document.getElementById("send-overall-fill");
+          if (sfc) {
+            sfc.style.width = "0%";
+            sfc.classList.remove("active");
+          }
+        } else {
+          document.getElementById("speed-val").textContent = "0 B/s";
+          document.getElementById("eta-val").textContent = "done";
+          btn.textContent = "\u2713 All Sent";
+          btn.style.opacity = ".6";
+          btn.classList.add("success-pulse");
+          buzz([100, 50, 100]);
+          const sfd = document.getElementById("send-overall-fill");
+          if (sfd) {
+            sfd.style.width = "100%";
+            sfd.classList.remove("active");
+            setTimeout(() => {
+              sfd.style.width = "0%";
+            }, 1500);
+          }
         }
       }
 
@@ -3163,28 +3140,16 @@
         const totalChunks = Math.ceil(file.size / CHUNK) || 1;
         if (!conn || !conn.open || transferCancelled) return false;
         const startChunk =
-          currentSend_progress > 0
-            ? Math.floor((currentSend_progress * totalChunks) / 100)
+          currentSendProgress > 0
+            ? Math.floor((currentSendProgress * totalChunks) / 100)
             : 0;
-        // Encrypt metadata
-        let meta = JSON.stringify({
+        conn.send({
+          type: "meta",
           name: file.name,
           size: file.size,
           mime: file.type,
           totalChunks,
           startChunk,
-        });
-        let encMeta;
-        try {
-          encMeta = new Uint8Array(await encryptChunk(new TextEncoder().encode(meta), cryptoKey));
-        } catch (e) {
-          showToast("Failed to encrypt file metadata");
-          return false;
-        }
-        conn.send({
-          type: "meta",
-          enc: true,
-          d: encMeta,
         });
         let batchCount = 0;
         for (let sent = startChunk; sent < totalChunks; sent++) {
@@ -3196,7 +3161,7 @@
           const chunkBuf = await file
             .slice(start, Math.min(start + CHUNK, file.size))
             .arrayBuffer();
-          sendBytes_sent += chunkBuf.byteLength;
+          sendBytesSent += chunkBuf.byteLength;
           let retries = 0;
           while (true) {
             try {
@@ -3206,10 +3171,10 @@
               let d;
               d = new Uint8Array(await encryptChunk(chunkBuf, cryptoKey));
               conn.send({ type: "b", i: sent, d });
-              currentSend_progress = Math.round(
+              currentSendProgress = Math.round(
                 ((sent + 1) / totalChunks) * 100,
               );
-              updateProg(file, currentSend_progress);
+              updateProg(file, currentSendProgress);
               break;
             } catch (e) {
               if (transferCancelled || !conn || !conn.open) return false;
@@ -3228,7 +3193,7 @@
           }
           if (sent % 16 === 0) await yieldControl();
         }
-        currentSend_progress = 0;
+        currentSendProgress = 0;
         return true;
       }
 
@@ -3254,20 +3219,39 @@
       }
 
       async function handleIncoming(d) {
-        if (d.type === "meta" && d.enc && d.d && cryptoKey) {
-          let meta;
-          try {
-            const dec = await decryptChunk(d.d.buffer, cryptoKey);
-            meta = JSON.parse(new TextDecoder().decode(dec));
-          } catch (e) {
-            setStatus("Failed to decrypt file metadata");
-            return;
-          }
-          // Call original handler with decrypted meta
-          origHandleIncoming({ ...meta, type: "meta" });
-          return;
+        if (d.type === "meta") {
+          recvTotalBytes += d.size;
+          if (!recvStartTime) recvStartTime = Date.now();
+          if (!recvSpeedInterval)
+            recvSpeedInterval = setInterval(updateRecvSpeed, 500);
+          recvMeta[d.name] = {
+            ...d,
+            received: 0,
+            lastPct: 0,
+            bytesReceived: 0,
+          };
+          recvBuffers[d.name] = new Array(d.totalChunks);
+          show("room-recv-progress");
+          const k = safeKey(d.name);
+          const safeRecvName = escapeHtml(d.name);
+          document.getElementById("room-recv-items").innerHTML +=
+            `<div class="xfer-file-item"><span class="prog-name" title="${safeRecvName}">${safeRecvName}</span><span class="prog-pct" id="rpct_${k}">0%</span></div>`;
+          const list = document.getElementById("room-recv-list");
+          if (list.querySelector(".empty")) list.innerHTML = "";
+        } else if (d.type === "b" && !pinPending) {
+          const raw = d.d;
+          const buf =
+            raw instanceof ArrayBuffer
+              ? raw
+              : raw.buffer.slice(
+                  raw.byteOffset,
+                  raw.byteOffset + raw.byteLength,
+                );
+          recvQueue.push({ i: d.i, buf, byteLength: buf.byteLength });
+          if (!recvProcessing) processRecvQueue();
+        } else if (d.type === "del") {
+          deleteReceivedFile(d.name, d.size);
         }
-        await origHandleIncoming(d);
       }
 
       function deleteReceivedFile(name, size) {
@@ -3333,7 +3317,7 @@
                 if (item.i < 0 || item.i >= meta.totalChunks) return;
                 recvBuffers[meta.name][item.i] = data;
                 meta.bytesReceived += item.byteLength || 0;
-                recvBytes_received += item.byteLength || 0;
+                recvBytesReceived += item.byteLength || 0;
                 stored++;
               } catch (e) {
                 console.error("Decrypt error", e);
@@ -3511,7 +3495,6 @@
 
       async function closeQRScanner() {
         const modal = document.getElementById("qr-scanner-modal");
-        if (modal._removeTrap) modal._removeTrap();
         modal.classList.remove("active");
         setTimeout(() => modal.classList.add("hidden"), 300);
         if (qrScanner) {
