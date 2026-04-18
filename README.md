@@ -62,7 +62,7 @@ To use a **private PeerJS server**, edit the `PEERJS_CFG` constant in `index.htm
 
 To support strict NATs or corporate networks, add a **TURN server** to the ICE configuration in `PEERJS_CFG`:
 
-```
+```js
 const PEERJS_CFG = {
  host: "0.peerjs.com", // or your private PeerJS server
  port: 443,
