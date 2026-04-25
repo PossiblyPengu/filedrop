@@ -49,6 +49,7 @@ let currentRoomCode = "",
 const MAX_RETRIES = 5,
 	RETRY_DELAY = 100,
 	MAX_RECONNECT = 5;
+const AUTO_JOIN_RETRY_MAX = 4;
 let qrScanner = null;
 let transferPaused = false,
 	transferCancelled = false,
@@ -58,6 +59,27 @@ let recvQueue = [],
 	recvProcessing = false;
 let wakeLock = null,
 	hostPubKeyArr = null;
+let autoJoinCode = "",
+	autoJoinRetries = 0,
+	autoJoinRetryTimer = null;
+
+function resetAutoJoinRetry() {
+	autoJoinCode = "";
+	autoJoinRetries = 0;
+	clearTimeout(autoJoinRetryTimer);
+}
+
+function scheduleAutoJoinRetry(code) {
+	if (!code || autoJoinCode !== code || autoJoinRetries >= AUTO_JOIN_RETRY_MAX) return;
+	autoJoinRetries++;
+	const delay = Math.min(700 * autoJoinRetries, 3000);
+	setDot('waiting');
+	setStatus(`Connection failed — retrying (${autoJoinRetries}/${AUTO_JOIN_RETRY_MAX})…`);
+	clearTimeout(autoJoinRetryTimer);
+	autoJoinRetryTimer = setTimeout(() => {
+		joinRoom(code);
+	}, delay);
+}
 
 // Small helper to dynamically inject a script and await its load
 function loadScript(src) {
@@ -423,6 +445,7 @@ function goHome() {
 	currentRoomCode = '';
 	reconnectAttempts = 0;
 	pendingSendIdx = 0;
+	resetAutoJoinRetry();
 	clearTimeout(reconnectTimer);
 	show('view-home');
 	hide('view-join');
@@ -632,6 +655,14 @@ async function joinRoom(autoCode) {
 		.trim()
 		.toUpperCase();
 	if (code.length !== 6) return;
+	const isAutoJoin = !!autoCode;
+	if (isAutoJoin) {
+		if (autoJoinCode !== code) autoJoinRetries = 0;
+		autoJoinCode = code;
+		clearTimeout(autoJoinRetryTimer);
+	} else {
+		resetAutoJoinRetry();
+	}
 	const joinBtnEl = document.getElementById('join-btn');
 	if (joinBtnEl) joinBtnEl.disabled = true;
 	const joinDot = document.getElementById('join-dot');
@@ -655,12 +686,16 @@ async function joinRoom(autoCode) {
 	peer.on('error', (e) => {
 		setDot('error');
 		setStatus('Error: ' + e.type);
+		if (isAutoJoin) scheduleAutoJoinRetry(code);
 	});
 }
 
 function doConnect(code) {
 	conn = peer.connect(code, { reliable: true });
-	conn.on('open', () => setStatus('Securing channel\u2026'));
+	conn.on('open', () => {
+		autoJoinRetries = 0;
+		setStatus('Securing channel\u2026');
+	});
 	conn.on('data', async (d) => {
 		if (d.type === 'ecdh-init') {
 			if (!d.pubKey) {
@@ -714,6 +749,7 @@ function doConnect(code) {
 		scheduleReconnect();
 	});
 	conn.on('error', () => {
+		if (autoJoinCode === code) scheduleAutoJoinRetry(code);
 		scheduleReconnect();
 	});
 }
@@ -1397,7 +1433,7 @@ window.addEventListener('load', () => {
 		showJoin();
 		const jc = document.getElementById('join-code-input');
 		if (jc) jc.value = room.toUpperCase().slice(0, 6);
-		setTimeout(() => joinRoom(room.toUpperCase().slice(0, 6)), 300);
+		setTimeout(() => joinRoom(room.toUpperCase().slice(0, 6)), 600);
 	}
 });
 if ('serviceWorker' in navigator) {
